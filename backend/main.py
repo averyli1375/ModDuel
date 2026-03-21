@@ -155,9 +155,10 @@ class AnalysisResponse(BaseModel):
 
 def _run_agent_and_score(run_id: str, scenario_id: str, agent_mode: str, model: str):
     """Run the agent in a background thread, then score the run."""
-    from database import SessionLocal
+    from database import get_session_factory
 
-    db = SessionLocal()
+    session_factory = get_session_factory()
+    db = session_factory()
     try:
         run_agent = _get_agents()
         score_run = _get_scorer()
