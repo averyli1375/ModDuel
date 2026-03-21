@@ -22,12 +22,27 @@ def get_engine_args():
     if DATABASE_URL.startswith("sqlite"):
         return {"connect_args": {"check_same_thread": False}}
     elif DATABASE_URL.startswith("postgresql"):
-        return {
-            "pool_size": 5,
-            "max_overflow": 10,
-            "pool_pre_ping": True,
-            "pool_recycle": 3600
-        }
+        # Optimized for Vercel serverless - connections don't persist across invocations
+        is_serverless = os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME")
+        if is_serverless:
+            return {
+                "pool_size": 1,              # Serverless = new connection per invocation
+                "max_overflow": 0,           # Don't create extra connections
+                "pool_pre_ping": True,       # Verify connection is alive
+                "pool_recycle": 300,         # Recycle connections every 5 min
+                "connect_args": {
+                    "connect_timeout": 5,    # Fail faster if DB is down
+                    "timeout": 5
+                }
+            }
+        else:
+            # Local development - can maintain connection pool
+            return {
+                "pool_size": 5,
+                "max_overflow": 10,
+                "pool_pre_ping": True,
+                "pool_recycle": 3600
+            }
     return {}
 
 # Lazy initialization - only create engine when first needed

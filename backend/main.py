@@ -3,6 +3,7 @@ from __future__ import annotations
 import uuid
 import threading
 import json
+import time
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, List
@@ -206,17 +207,24 @@ def get_scenario_detail(scenario_id: str):
 
 @app.post("/api/runs/start")
 def start_run(req: StartRunRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
-    # Validate scenario
+    """Start a new scenario run - returns immediately with run_id"""
+    start_time = time.time()
+    
+    # Step 1: Validate scenario
+    t1 = time.time()
     scenario = get_scenario(req.scenario_id)
     if not scenario:
         raise HTTPException(status_code=400, detail="Invalid scenario_id")
+    print(f"[{req.scenario_id}] Step 1 (get_scenario): {time.time() - t1:.3f}s")
 
     if req.agent_mode not in ("baseline", "guarded"):
         raise HTTPException(status_code=400, detail="agent_mode must be 'baseline' or 'guarded'")
 
     run_id = str(uuid.uuid4())[:8]
+    print(f"[{run_id}] Starting new run for scenario {req.scenario_id}")
 
-    # Use a try block to gracefully fail and return 500 with a text response if DB write fails 
+    # Step 2: Create database record
+    t2 = time.time()
     try:
         run = ScenarioRun(
             id=run_id,
@@ -227,23 +235,33 @@ def start_run(req: StartRunRequest, background_tasks: BackgroundTasks, db: Sessi
             started_at=datetime.utcnow(),
         )
         db.add(run)
+        t_add = time.time()
+        print(f"[{run_id}] Step 2a (db.add): {t_add - t2:.3f}s")
+        
         db.commit()
+        t_commit = time.time()
+        print(f"[{run_id}] Step 2b (db.commit): {t_commit - t_add:.3f}s")
     except Exception as e:
+        print(f"[{run_id}] Database error: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
+    # Step 3: Schedule background task
+    t3 = time.time()
     import os
     if os.environ.get("VERCEL"):
-        # run synchronously on vercel to make sure the process doesn't die before it begins but limit max turn or whatever
-        # However, vercel function timeout might hit. Using background_tasks keeps the HTTP request open slightly longer depending on the framework config.
         background_tasks.add_task(_run_agent_and_score, run_id, req.scenario_id, req.agent_mode, req.model)
     else:
-        # Start agent in background thread locally
         thread = threading.Thread(
             target=_run_agent_and_score,
             args=(run_id, req.scenario_id, req.agent_mode, req.model),
             daemon=True,
         )
         thread.start()
+    
+    print(f"[{run_id}] Step 3 (schedule task): {time.time() - t3:.3f}s")
+    print(f"[{run_id}] Total time: {time.time() - start_time:.3f}s")
 
     return {"run_id": run_id, "status": "started"}
 
