@@ -103,9 +103,13 @@ export default function Dashboard({
         <div className="wanted-poster p-6 flex flex-col items-center border border-wood-dark/20 text-center relative z-10 before:absolute before:inset-0 before:bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgoJCTxyZWN0IHdpZHRoPSI0IiBoZWlnaHQ9IjQiIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSIvPgoJPC9zdmc+')] before:pointer-events-none">
           
           <h2 className="font-[family-name:var(--font-western)] text-wood-dark text-3xl mb-1 flex items-center gap-3">
-            <span className="text-red-900/80">★</span> 
+            <span className="text-red-900/80">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            </span> 
             WANTED LEVEL 
-            <span className="text-red-900/80">★</span>
+            <span className="text-red-900/80">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            </span>
           </h2>
           <div className="h-px bg-wood-darker/30 w-1/2 mb-4" />
 
@@ -280,8 +284,9 @@ export default function Dashboard({
       {/* Judge analysis */}
       {score.judge_analysis && (
         <div className="parchment-card p-4">
-          <h3 className="font-[family-name:var(--font-serif)] text-gold text-sm mb-2 uppercase tracking-wider">
-            🏛️ Judge&apos;s Verdict
+          <h3 className="font-[family-name:var(--font-serif)] text-gold text-sm mb-2 uppercase tracking-wider flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" x2="21" y1="22" y2="22"/><line x1="6" x2="6" y1="18" y2="11"/><line x1="10" x2="10" y1="18" y2="11"/><line x1="14" x2="14" y1="18" y2="11"/><line x1="18" x2="18" y1="18" y2="11"/><polygon points="12 2 20 7 4 7"/></svg>
+            Judge&apos;s Verdict
           </h3>
           <p className="text-sm text-parchment-dark leading-relaxed">
             {score.judge_analysis}
