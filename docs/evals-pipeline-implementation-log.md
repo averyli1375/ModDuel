@@ -1,0 +1,32 @@
+# Evals Pipeline Implementation Log
+
+This file is updated as implementation proceeds.
+
+## Entries
+- 2026-03-21: Created physical docs in repository for design, plan, and implementation log.
+- 2026-03-21: Locked final planning decisions for v1 (critical flags, threshold, per-batch auto-analysis cadence).
+- 2026-03-21: Started implementation. Added eval persistence models (`EvalRecord`, `EvalAnalysis`) in `backend/models.py`.
+- 2026-03-21: Added eval grading logic for one JSON file (`grade_eval_file`) in `backend/scorer.py`.
+- 2026-03-21: Added batch analyzer module (`backend/analyzer.py`) with deterministic metrics + analyzer LLM pass.
+- 2026-03-21: Added eval API endpoints in `backend/main.py`:
+	- `POST /api/evals/grade-file`
+	- `GET /api/evals/{eval_id}`
+	- `GET /api/evals/batch/{batch_id}`
+	- `POST /api/evals/analyze`
+	- `GET /api/evals/analysis/{analysis_id}`
+- 2026-03-21: Added automatic analysis trigger every 50 graded files per `batch_id`.
+- 2026-03-21: Performed sanity check with `python3 -m py_compile main.py scorer.py analyzer.py models.py`.
+- 2026-03-21: Added demo test assets under `backend/outputs/demo_batch_001/` (`case_001.json`, `case_002.json`).
+- 2026-03-21: Added runnable demo script `backend/tests/demo_eval_case.py` for endpoint-level grading and batch analysis output.
+- 2026-03-21: Executed demo script successfully and validated real response payloads for grading and analysis endpoints.
+
+## Current Status
+- Planning complete.
+- Implementation in progress.
+
+## Next Update Template
+- Date:
+- Change:
+- Files touched:
+- Validation performed:
+- Follow-up:
