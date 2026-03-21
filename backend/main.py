@@ -12,9 +12,19 @@ from sqlalchemy.orm import Session
 from database import get_db, init_db
 from models import ScenarioRun, AgentAction, RunScore
 from scenarios import get_all_scenarios, get_scenario
-from agent import run_agent
-from scorer import score_run
-from batch_runner import run_batch, BatchRequest, BatchResponse
+
+# Lazy imports - only load when needed
+def _get_agents():
+    from agent import run_agent
+    return run_agent
+
+def _get_scorer():
+    from scorer import score_run
+    return score_run
+
+def _get_batch_runner():
+    from batch_runner import run_batch, BatchRequest, BatchResponse
+    return run_batch, BatchRequest, BatchResponse
 
 app = FastAPI(title="ModDuel API", version="1.0.0")
 
@@ -91,6 +101,9 @@ def _run_agent_and_score(run_id: str, scenario_id: str, agent_mode: str, model: 
 
     db = SessionLocal()
     try:
+        run_agent = _get_agents()
+        score_run = _get_scorer()
+        
         run_agent(db, run_id, scenario_id, agent_mode, model)
 
         # Score the completed run
@@ -264,10 +277,12 @@ def compare_runs(run_ids: str, db: Session = Depends(get_db)):
                 }
             )
 
-    return {"runs": results}
-
-
-@app.post("/api/batch", response_model=BatchResponse)
+    return {"runs": re)
+async def batch_run(req):
+    """Run all scenarios in a folder as single-shot Claude calls. No DB involvement."""
+    try:
+        from batch_runner import BatchRequest, BatchResponse
+        run_batch = _get_batch_runner()[0]t("/api/batch", response_model=BatchResponse)
 async def batch_run(req: BatchRequest):
     """Run all scenarios in a folder as single-shot Claude calls. No DB involvement."""
     try:
