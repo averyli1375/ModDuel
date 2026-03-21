@@ -14,10 +14,25 @@ from sqlalchemy.orm import Session
 from database import get_db, init_db
 from models import ScenarioRun, AgentAction, RunScore, EvalRecord, EvalAnalysis
 from scenarios import get_all_scenarios, get_scenario
-from agent import run_agent
-from scorer import score_run, grade_eval_file
-from analyzer import analyze_batch, should_auto_analyze
-from batch_runner import run_batch, BatchRequest, BatchResponse
+
+# Lazy imports - only load when needed
+def _get_agents():
+    from agent import run_agent
+    return run_agent
+
+def _get_scorer():
+    from scorer import score_run
+    return score_run
+
+
+def _get_eval_services():
+    from scorer import grade_eval_file
+    from analyzer import analyze_batch, should_auto_analyze
+    return grade_eval_file, analyze_batch, should_auto_analyze
+
+def _get_batch_runner():
+    from batch_runner import run_batch, BatchRequest, BatchResponse
+    return run_batch, BatchRequest, BatchResponse
 
 app = FastAPI(title="ModDuel API", version="1.0.0")
 
@@ -32,7 +47,10 @@ app.add_middleware(
 
 @app.on_event("startup")
 def startup():
-    init_db()
+    try:
+        init_db()
+    except Exception as e:
+        print(f"Database initialization failed: {e}")
 
 
 # --- Request/Response Models ---
@@ -131,6 +149,9 @@ def _run_agent_and_score(run_id: str, scenario_id: str, agent_mode: str, model: 
 
     db = SessionLocal()
     try:
+        run_agent = _get_agents()
+        score_run = _get_scorer()
+        
         run_agent(db, run_id, scenario_id, agent_mode, model)
 
         # Score the completed run
@@ -333,6 +354,8 @@ def grade_single_eval_file(req: GradeFileRequest, db: Session = Depends(get_db))
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid JSON file: {str(e)}") from e
 
+    grade_eval_file, analyze_batch, should_auto_analyze = _get_eval_services()
+
     try:
         record = grade_eval_file(db, batch_id=batch_id, payload=payload, source_file=file_name)
     except ValueError as e:
@@ -368,6 +391,8 @@ def analyze_eval_batch(req: AnalyzeBatchRequest, db: Session = Depends(get_db)):
     batch_id = req.batch_id.strip()
     if not batch_id:
         raise HTTPException(status_code=400, detail="batch_id is required")
+
+    _, analyze_batch, _ = _get_eval_services()
 
     try:
         analysis = analyze_batch(db, batch_id=batch_id, trigger_mode="manual")
@@ -435,11 +460,13 @@ def _loads_or_default(raw: Optional[str], default):
         return default
 
 
-@app.post("/api/batch", response_model=BatchResponse)
-async def batch_run(req: BatchRequest):
+@app.post("/api/batch")
+async def batch_run(req: dict):
     """Run all scenarios in a folder as single-shot Claude calls. No DB involvement."""
     try:
-        return await run_batch(req)
+        run_batch, BatchRequest, _ = _get_batch_runner()
+        parsed_req = BatchRequest(**req)
+        return await run_batch(parsed_req)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
