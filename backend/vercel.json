@@ -1,7 +1,6 @@
 {
   "buildCommand": "pip install -r requirements.txt",
   "outputDirectory": ".",
-  "runtime": "python@3.12",
   "crons": [],
   "routes": [
     {
