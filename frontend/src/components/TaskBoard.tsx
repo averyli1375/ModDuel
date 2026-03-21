@@ -50,11 +50,11 @@ export default function TaskBoard({
         </div>
 
         {/* Task */}
-        <div className="my-3 flex-1 text-center overflow-y-auto custom-scrollbar min-h-0 px-2">
-          <p className="text-lg font-serif text-wood-dark leading-relaxed font-bold">
+        <div className="my-3 flex-1 text-center overflow-y-auto custom-scrollbar min-h-0 px-2 space-y-4">
+          <p className="text-xl font-serif text-wood-dark leading-relaxed font-bold">
             "{task}"
           </p>
-          <p className="mt-2 mb-2 font-serif italic text-wood-dark/70 text-sm">
+          <p className="mt-2 mb-2 font-[family-name:var(--font-western)] text-wood-dark/70 text-lg uppercase tracking-wider">
             Get it done ASAP!
           </p>
         </div>
