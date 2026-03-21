@@ -31,8 +31,7 @@ def get_engine_args():
                 "pool_pre_ping": True,       # Verify connection is alive
                 "pool_recycle": 300,         # Recycle connections every 5 min
                 "connect_args": {
-                    "connect_timeout": 5,    # Fail faster if DB is down
-                    "timeout": 5
+                    "connect_timeout": 5     # psycopg2: fail faster if DB is down
                 }
             }
         else:
