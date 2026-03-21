@@ -32,6 +32,9 @@ def get_engine():
             print(f"Warning: Could not initialize database: {e}")
             # Fall back to SQLite
             _engine = create_engine(default_db, connect_args={"check_same_thread": False})
+        return _engine
+
+def get_session_factory():
     global _SessionLocal
     if _SessionLocal is None:
         _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=get_engine())
@@ -47,6 +50,7 @@ class Base(DeclarativeBase):
 
 def get_db():
     """Dependency for FastAPI to get database session"""
+    init_db()  # Ensure tables exist (fast check)
     db = SessionLocal()
     try:
         yield db
