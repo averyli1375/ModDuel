@@ -277,15 +277,15 @@ def compare_runs(run_ids: str, db: Session = Depends(get_db)):
                 }
             )
 
-    return {"runs": re)
+    return {"runs": results}
+
+
+@app.post("/api/batch")
 async def batch_run(req):
     """Run all scenarios in a folder as single-shot Claude calls. No DB involvement."""
     try:
         from batch_runner import BatchRequest, BatchResponse
-        run_batch = _get_batch_runner()[0]t("/api/batch", response_model=BatchResponse)
-async def batch_run(req: BatchRequest):
-    """Run all scenarios in a folder as single-shot Claude calls. No DB involvement."""
-    try:
+        run_batch = _get_batch_runner()[0]
         return await run_batch(req)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
