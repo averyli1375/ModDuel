@@ -130,43 +130,63 @@ export default function Home() {
   const currentScenario = scenarios.find((s) => s.id === selectedScenario);
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="h-screen flex flex-col overflow-hidden western-scene dust-mote">
+      <div className="town-decor" aria-hidden="true">
+        <span className="scene-sky" />
+        <span className="scene-road" />
+        <span className="scene-left-town" />
+        <span className="scene-right-town" />
+        <span className="scene-wagon wagon-one" />
+        <span className="tumbleweed tumbleweed-one" />
+        <span className="tumbleweed tumbleweed-two" />
+      </div>
+
       {/* Header */}
-      <header className="border-b border-gold/30 bg-wood-medium/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="max-w-[1600px] mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="text-3xl">⭐</span>
-            <div>
-              <h1 className="font-[family-name:var(--font-western)] text-gold text-2xl leading-tight">
-                MODDUEL ARENA
+      <header className="saloon-header rope-divider backdrop-blur-sm sticky top-0 z-50 shadow-2xl relative">
+        <div className="absolute inset-0 bg-wood-dark" style={{ 
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23noise)' opacity='0.08'/%3E%3C/svg%3E"), linear-gradient(to bottom, transparent, rgba(0,0,0,0.5))`
+        }}></div>
+        <div className="relative max-w-[1600px] mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              {/* Crossed revolvers / Star icon placeholder */}
+              <span className="text-4xl text-gold drop-shadow-md">✯</span>
+            </div>
+            <div className="wood-board px-6 py-2 shadow-lg border-2 border-wood-darker transform -rotate-1 relative z-10 before:absolute before:inset-0 before:bg-gradient-to-t before:from-black/20 before:to-transparent">
+              <div className="absolute top-1 left-1 w-1.5 h-1.5 rounded-full bg-zinc-800 shadow-inner" />
+              <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-zinc-800 shadow-inner" />
+              <div className="absolute bottom-1 left-1 w-1.5 h-1.5 rounded-full bg-zinc-800 shadow-inner" />
+              <div className="absolute bottom-1 right-1 w-1.5 h-1.5 rounded-full bg-zinc-800 shadow-inner" />
+              <h1 className="font-[family-name:var(--font-western)] text-wood-dark text-4xl leading-none drop-shadow-sm">
+                MODDUEL
               </h1>
-              <p className="text-[10px] text-parchment-dark uppercase tracking-[0.2em]">
-                The Frontier AI Alignment Testing Ground
+              <p className="text-[10px] text-wood-dark font-bold uppercase tracking-[0.2em] relative z-10">
+                Red-Teaming for Frontier Models
               </p>
             </div>
           </div>
 
           {/* Tab navigation */}
-          <div className="flex gap-1 bg-wood-dark/50 rounded p-1">
+          <div className="flex gap-2 p-2 relative z-10">
             <button
               onClick={() => setActiveTab("arena")}
-              className={`px-4 py-1.5 rounded text-sm font-bold uppercase tracking-wider transition-all ${
+              className={`wood-board px-6 py-2 shadow-md transition-all border-2 border-wood-darker transform hover:-translate-y-1 ${
                 activeTab === "arena"
-                  ? "bg-gold text-wood-dark"
-                  : "text-parchment-dark hover:text-parchment"
+                  ? "bg-amber-100 text-wood-dark rotate-1"
+                  : "bg-wood-medium opacity-80 text-wood-dark hover:opacity-100"
               }`}
             >
-              🤠 Arena
+              <span className="font-[family-name:var(--font-western)] text-xl">The Arena</span>
             </button>
             <button
               onClick={() => setActiveTab("reckoning")}
-              className={`px-4 py-1.5 rounded text-sm font-bold uppercase tracking-wider transition-all ${
+              className={`wood-board px-6 py-2 shadow-md transition-all border-2 border-wood-darker transform hover:-translate-y-1 ${
                 activeTab === "reckoning"
-                  ? "bg-gold text-wood-dark"
-                  : "text-parchment-dark hover:text-parchment"
+                  ? "bg-amber-100 text-wood-dark -rotate-1"
+                  : "bg-wood-medium opacity-80 text-wood-dark hover:opacity-100"
               }`}
             >
-              📊 Reckoning
+               <span className="font-[family-name:var(--font-western)] text-xl">The Reckoning</span>
             </button>
           </div>
         </div>
@@ -186,73 +206,93 @@ export default function Home() {
       )}
 
       {/* Main content */}
-      <main className="flex-1 max-w-[1600px] mx-auto w-full p-4">
+      <main className={`flex-1 max-w-[1600px] mx-auto w-full p-4 relative z-10 ${activeTab === "arena" ? "overflow-hidden" : "overflow-y-auto"}`}>
         {activeTab === "arena" ? (
-          <div className="flex gap-4 h-[calc(100vh-120px)]">
+          <div className="flex gap-4 h-full min-h-0">
             {/* Left sidebar: Scenario selector */}
-            <div className="w-72 flex-shrink-0 flex flex-col gap-4">
+            <div className="w-72 flex-shrink-0 flex flex-col gap-4 overflow-y-auto">
               {/* Scenario selector */}
-              <div className="parchment-card p-4">
-                <h2 className="font-[family-name:var(--font-western)] text-gold text-sm mb-3 uppercase tracking-wider">
-                  Choose Your Scenario
-                </h2>
-                <div className="space-y-2">
-                  {scenarios.map((s) => (
-                    <button
-                      key={s.id}
-                      onClick={() => setSelectedScenario(s.id)}
-                      disabled={isRunning}
-                      className={`w-full text-left p-3 rounded border transition-all ${
-                        selectedScenario === s.id
-                          ? "border-gold bg-gold/10 glow-gold"
-                          : "border-wood-light/30 hover:border-gold/50 bg-wood-medium/30"
-                      } ${isRunning ? "opacity-50 cursor-not-allowed" : ""}`}
-                    >
-                      <p className="text-sm font-bold text-parchment">
-                        {s.name}
-                      </p>
-                      <p className="text-[11px] text-parchment-dark mt-1 line-clamp-2">
-                        {s.description}
-                      </p>
-                    </button>
+              <div className="wood-board p-2 h-max flex flex-col items-center">
+                <div className="wanted-poster p-4 w-full h-full shadow-md animate-fade-in relative z-10 transition-transform">
+                  <h2 className="font-[family-name:var(--font-western)] text-wood-dark text-xl mb-3 flex items-center justify-center gap-2 border-b-2 border-wood-dark/30 pb-2">
+                    <span className="text-sm">★</span> Bounty Target <span className="text-sm">★</span>
+                  </h2>
+                  <div className="space-y-3">
+                    {scenarios.map((s) => (
+                      <button
+                        key={s.id}
+                        onClick={() => setSelectedScenario(s.id)}
+                        disabled={isRunning}
+                        className={`w-full text-left p-2 transition-all hover:-translate-y-1 relative paper-texture shadow-sm ${
+                          selectedScenario === s.id
+                            ? "bg-amber-100 border border-wood-dark"
+                            : "bg-parchment/80 border border-wood-light/50 hover:bg-parchment"
+                        } ${isRunning ? "opacity-50 cursor-not-allowed" : ""} ${
+                          s.id === selectedScenario ? "-skew-y-1" : "skew-y-1"
+                        }`}
+                      >
+                        <div className="absolute top-0.5 right-1 text-[8px] text-wood-dark/50 uppercase">wanted</div>
+                        <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-zinc-400 shadow-md border border-zinc-600 z-10" />
+                        <p className="text-md font-bold text-wood-dark mt-1 font-[family-name:var(--font-western)] text-center">
+                          {s.name}
+                        </p>
+                        <p className="text-xs text-wood-dark mt-1 line-clamp-2 italic font-serif text-center">
+                          {s.description}
+                        </p>
+                      </button>
                   ))}
+                  </div>
                 </div>
               </div>
 
               {/* Agent mode selector */}
-              <div className="parchment-card p-4">
-                <h2 className="font-[family-name:var(--font-western)] text-gold text-sm mb-3 uppercase tracking-wider">
-                  Agent Mode
-                </h2>
-                <div className="space-y-2">
-                  <button
-                    onClick={() => setAgentMode("baseline")}
-                    disabled={isRunning}
-                    className={`w-full text-left p-3 rounded border transition-all ${
-                      agentMode === "baseline"
-                        ? "border-rust bg-rust/10"
-                        : "border-wood-light/30 hover:border-rust/50 bg-wood-medium/30"
-                    } ${isRunning ? "opacity-50 cursor-not-allowed" : ""}`}
-                  >
-                    <p className="text-sm font-bold text-rust">🤠 Baseline</p>
-                    <p className="text-[11px] text-parchment-dark mt-1">
-                      No guardrails. Raw agent behavior.
-                    </p>
-                  </button>
-                  <button
-                    onClick={() => setAgentMode("guarded")}
-                    disabled={isRunning}
-                    className={`w-full text-left p-3 rounded border transition-all ${
-                      agentMode === "guarded"
-                        ? "border-safe bg-safe/10"
-                        : "border-wood-light/30 hover:border-safe/50 bg-wood-medium/30"
-                    } ${isRunning ? "opacity-50 cursor-not-allowed" : ""}`}
-                  >
-                    <p className="text-sm font-bold text-safe">🛡️ Guarded</p>
-                    <p className="text-[11px] text-parchment-dark mt-1">
-                      With alignment guardrails and monitoring.
-                    </p>
-                  </button>
+              <div className="wood-board p-2 animate-fade-in relative">
+                {/* Nails */}
+                <div className="absolute top-1 left-1 w-1.5 h-1.5 rounded-full bg-wood-darker shadow-inner" />
+                <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-wood-darker shadow-inner" />
+                <div className="absolute bottom-1 left-1 w-1.5 h-1.5 rounded-full bg-wood-darker shadow-inner" />
+                <div className="absolute bottom-1 right-1 w-1.5 h-1.5 rounded-full bg-wood-darker shadow-inner" />
+
+                <div className="wood-panel border-4 border-wood-dark/40 p-3 h-full flex flex-col">
+                  <h2 className="font-[family-name:var(--font-western)] text-parchment text-lg mb-3 uppercase tracking-wider text-center border-b border-wood-light/20 pb-2">
+                    Marshal Orders
+                  </h2>
+                  <div className="space-y-2 font-serif relative z-10 w-full px-1">
+                    <button
+                      onClick={() => setAgentMode("baseline")}
+                      disabled={isRunning}
+                      className={`w-full text-left p-2 rounded-sm border transition-all hover:scale-[1.02] shadow-sm flex items-center gap-2 ${
+                        agentMode === "baseline"
+                          ? "border-rust bg-rust/20 text-rust shadow-inner"
+                          : "border-wood-light/30 bg-wood-dark/40 hover:bg-wood-dark/60 text-parchment/70"
+                      } ${isRunning ? "opacity-50 cursor-not-allowed" : ""}`}
+                    >
+                      <span className="text-xl font-mono opacity-80">{agentMode === "baseline" ? "■" : "□"}</span>
+                      <div>
+                        <p className="text-sm font-bold uppercase tracking-wider font-[family-name:var(--font-western)]">Outlaw (Baseline)</p>
+                        <p className="text-[10px] mt-0.5 opacity-80">
+                            No safety reins. Raw rider behavior.
+                        </p>
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => setAgentMode("guarded")}
+                      disabled={isRunning}
+                      className={`w-full text-left p-2 rounded-sm border transition-all hover:scale-[1.02] shadow-sm flex items-center gap-2 ${
+                        agentMode === "guarded"
+                          ? "border-safe bg-safe/20 text-safe shadow-inner"
+                          : "border-wood-light/30 bg-wood-dark/40 hover:bg-wood-dark/60 text-parchment/70"
+                      } ${isRunning ? "opacity-50 cursor-not-allowed" : ""}`}
+                    >
+                      <span className="text-xl font-mono opacity-80">{agentMode === "guarded" ? "■" : "□"}</span>
+                      <div>
+                        <p className="text-sm font-bold uppercase tracking-wider font-[family-name:var(--font-western)]">Lawman (Guarded)</p>
+                        <p className="text-[10px] mt-0.5 opacity-80">
+                            Fenced with alignment rules.
+                        </p>
+                      </div>
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -260,39 +300,52 @@ export default function Home() {
               <button
                 onClick={handleStartRun}
                 disabled={isRunning || !selectedScenario}
-                className={`w-full py-3 rounded font-[family-name:var(--font-western)] text-lg uppercase tracking-wider transition-all ${
+                className={`w-full py-4 relative group transition-all hover:scale-105 active:scale-95 border-b-4 border-2 ${
                   isRunning
-                    ? "bg-gold/30 text-parchment-dark cursor-not-allowed"
-                    : "bg-gold text-wood-dark hover:bg-gold-bright glow-gold"
+                    ? "bg-wood-dark/50 border-wood-darker text-wood-light cursor-not-allowed"
+                    : "bg-red-800 border-red-950 text-parchment hover:bg-red-700"
                 }`}
+                style={{ 
+                  textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+                  boxShadow: '0 4px 6px -1px rgba(0,0,0,0.5)' 
+                }}
               >
-                {isRunning ? "⏳ Running..." : "🔥 RIDE OUT"}
+                <div className="absolute inset-0 bg-black/10 transition-opacity group-hover:opacity-0" />
+                <span className="relative z-10 font-[family-name:var(--font-western)] text-2xl uppercase tracking-widest flex items-center justify-center gap-3">
+                  {isRunning ? "SADDLING..." : (
+                    <>
+                      <span className="text-xl">⚔</span> 
+                      Commence Duel 
+                      <span className="text-xl">⚔</span>
+                    </>
+                  )}
+                </span>
               </button>
 
               {/* Quick score preview */}
               {currentRun?.score && (
                 <div
-                  className="parchment-card p-4 cursor-pointer hover:glow-gold transition-all"
+                  className="parchment-card p-4 cursor-pointer hover:glow-gold transition-all hover:scale-105 animate-fade-in"
                   onClick={() => setActiveTab("reckoning")}
                 >
                   <p className="text-xs text-parchment-dark uppercase tracking-wider">
-                    Latest Result
+                    Latest Bounty
                   </p>
                   <p className="text-3xl font-[family-name:var(--font-western)] text-gold mt-1">
                     {Math.round(currentRun.score.alignment_score)}
                   </p>
                   <p className="text-xs text-parchment-dark">
-                    Click for full reckoning →
+                    Open full reckoning -&gt;
                   </p>
                 </div>
               )}
             </div>
 
             {/* Main area: 3-pane view */}
-            <div className="flex-1 flex flex-col gap-4 min-w-0">
+            <div className="flex-1 flex flex-col gap-4 min-w-0 min-h-0">
               {/* Top row: Inbox + Task Board */}
-              <div className="flex gap-4 h-[45%]">
-                <div className="flex-1 min-w-0">
+              <div className="flex gap-4 h-[45%] min-h-0">
+                <div className="flex-1 min-w-0 min-h-0">
                   <Inbox
                     emails={
                       scenarioDetail?.emails.map((e) => ({
@@ -305,7 +358,7 @@ export default function Home() {
                     actions={currentRun?.actions || []}
                   />
                 </div>
-                <div className="w-80 flex-shrink-0">
+                <div className="w-80 flex-shrink-0 min-h-0">
                   <TaskBoard
                     task={currentScenario?.task || "Select a scenario to begin..."}
                     scenarioName={currentScenario?.name || "No scenario selected"}
@@ -328,10 +381,10 @@ export default function Home() {
           /* Reckoning (Dashboard) tab */
           <div className="max-w-5xl mx-auto">
             {/* Comparison selector */}
-            <div className="parchment-card p-4 mb-6">
+            <div className="parchment-card p-4 mb-6 animate-fade-in">
               <div className="flex items-center gap-4 flex-wrap">
                 <h3 className="font-[family-name:var(--font-serif)] text-gold text-sm uppercase tracking-wider">
-                  Compare with past run:
+                  Duel ledger comparison:
                 </h3>
                 <select
                   value={selectedComparison}
@@ -365,8 +418,8 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-wood-light/20 py-3 text-center text-xs text-parchment-dark">
-        ModDuel Arena — Testing AI Alignment on the Frontier — HooHacks 2026
+      <footer className="border-t border-wood-light/20 py-3 text-center text-xs text-parchment-dark rope-divider relative z-10">
+        ModDuel Arena | Frontier Alignment Office | HooHacks 2026
       </footer>
     </div>
   );

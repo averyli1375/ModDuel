@@ -21,54 +21,60 @@ export default function TaskBoard({
   };
 
   const statusIcons: Record<string, string> = {
-    pending: "⏳",
-    running: "⚡",
-    completed: "✅",
-    failed: "💀",
+    pending: "...",
+    running: ">>",
+    completed: "OK",
+    failed: "XX",
   };
 
   return (
-    <div className="parchment-card p-4 h-full flex flex-col">
-      <h2 className="font-[family-name:var(--font-western)] text-gold text-lg mb-3 flex items-center gap-2">
-        <span className="text-xl">📋</span> BOUNTY BOARD
-      </h2>
+    <div className="wood-board p-2 h-full flex flex-col items-center">
+      <div className="wanted-poster flex-1 w-full max-w-sm flex flex-col p-4 shadow-lg animate-fade-in relative z-10 skew-y-1 hover:skew-y-0 transition-transform overflow-hidden min-h-0">
+        <h2 className="font-[family-name:var(--font-western)] text-wood-dark text-2xl mb-1 text-center border-b-2 border-wood-dark/30 pb-2 flex items-center justify-center gap-2 flex-shrink-0">
+          <span className="text-xl">★</span> Current Job <span className="text-xl">★</span>
+        </h2>
 
-      {/* Scenario name */}
-      <div className="mb-3 p-2 bg-wood-light/20 rounded border border-gold/20">
-        <p className="text-xs text-parchment-dark uppercase tracking-wider">
-          Scenario
-        </p>
-        <p className="text-sm font-[family-name:var(--font-serif)] text-gold">
-          {scenarioName}
-        </p>
-      </div>
-
-      {/* Task */}
-      <div className="mb-3 flex-1">
-        <p className="text-xs text-parchment-dark uppercase tracking-wider mb-1">
-          Objective
-        </p>
-        <p className="text-sm text-parchment leading-relaxed">{task}</p>
-      </div>
-
-      {/* Status bar */}
-      <div className="flex items-center justify-between pt-3 border-t border-wood-light/20">
-        <div className="flex items-center gap-2">
-          <span
-            className={`text-xs uppercase tracking-wider font-bold ${
-              agentMode === "guarded" ? "text-safe" : "text-rust"
-            }`}
-          >
-            {agentMode === "guarded" ? "🛡️ GUARDED" : "🤠 BASELINE"}
-          </span>
+        {/* Scenario name */}
+        <div className="mt-3 text-center flex-shrink-0">
+          <p className="text-[10px] text-wood-dark font-bold uppercase tracking-widest font-mono">
+            Target
+          </p>
+          <p className="text-lg font-[family-name:var(--font-western)] text-wood-dark mt-1">
+            {scenarioName}
+          </p>
         </div>
-        <div className="flex items-center gap-1">
-          <span>{statusIcons[status] || "❓"}</span>
-          <span
-            className={`text-xs uppercase font-bold ${statusColors[status] || ""}`}
-          >
-            {status}
-          </span>
+
+        {/* Task */}
+        <div className="my-3 flex-1 text-center overflow-y-auto custom-scrollbar min-h-0 px-2">
+          <p className="text-lg font-serif text-wood-dark leading-relaxed font-bold">
+            "{task}"
+          </p>
+          <p className="mt-2 mb-2 font-serif italic text-wood-dark/70 text-sm">
+            Get it done ASAP!
+          </p>
+        </div>
+
+        {/* Status bar */}
+        <div className="flex items-center justify-between pt-3 border-t-2 opacity-80 border-wood-dark border-dashed mt-auto flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <span
+              className={`text-xs uppercase tracking-wider font-bold ${
+                agentMode === "guarded" ? "text-green-800" : "text-rust"
+              }`}
+            >
+              {agentMode === "guarded" ? "Lawman" : "Outlaw"}
+            </span>
+          </div>
+          <div className="flex items-center gap-1 font-mono">
+            <span className="text-wood-dark">{statusIcons[status] || "?"}</span>
+            <span
+              className={`text-xs uppercase font-bold ${
+                status === "failed" ? "text-red-900" : "text-wood-dark"
+              }`}
+            >
+              {status === "pending" ? "Awaiting" : status}
+            </span>
+          </div>
         </div>
       </div>
     </div>

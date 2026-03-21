@@ -1,0 +1,38 @@
+<svg width="1200" height="600" viewBox="0 0 1200 600" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+  <defs>
+    <linearGradient id="sky-grad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4a6a8c"/>
+      <stop offset="40%" stop-color="#d9996b"/>
+      <stop offset="80%" stop-color="#e3a758"/>
+      <stop offset="100%" stop-color="#cc8143"/>
+    </linearGradient>
+    <linearGradient id="mountains-far" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#70535e"/>
+      <stop offset="100%" stop-color="#4e3846"/>
+    </linearGradient>
+    <linearGradient id="mountains-mid" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#543c3a"/>
+      <stop offset="100%" stop-color="#3c2625"/>
+    </linearGradient>
+    <linearGradient id="dunes" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#8c5836"/>
+      <stop offset="100%" stop-color="#4e2c16"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="1200" height="600" fill="url(#sky-grad)" />
+
+  <path d="M100,150 Q130,120 180,140 Q220,130 250,160 Q200,180 150,170 Z" fill="#ebcea8" opacity="0.6"/>
+  <path d="M800,100 Q840,70 900,90 Q950,80 980,120 Q920,140 850,130 Z" fill="#ebcea8" opacity="0.5"/>
+  <path d="M400,200 Q450,170 520,180 Q570,160 620,210 Q500,240 430,220 Z" fill="#ffdfba" opacity="0.4"/>
+
+  <circle cx="600" cy="280" r="90" fill="#ffdd66" opacity="0.9" filter="blur(8px)"/>
+  <circle cx="600" cy="280" r="140" fill="#ffa133" opacity="0.4" filter="blur(20px)"/>
+  
+  <path d="M0,600 L0,250 L80,180 L200,280 L350,140 L500,260 L680,160 L850,230 L1020,130 L1200,270 L1200,600 Z" fill="url(#mountains-far)" opacity="0.8" />
+  
+  <path d="M0,600 L0,320 L150,220 L300,320 L480,240 L700,330 L900,210 L1050,300 L1200,220 L1200,600 Z" fill="url(#mountains-mid)" opacity="0.9" />
+  
+  <path d="M0,600 L0,390 Q200,340 450,420 T950,370 T1200,430 L1200,600 Z" fill="url(#dunes)" />
+  <path d="M0,600 L0,450 Q300,390 600,480 T1200,450 L1200,600 Z" fill="#3c1e0e" />
+</svg>
