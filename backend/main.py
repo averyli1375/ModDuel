@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, List
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -34,7 +34,17 @@ def _get_batch_runner():
     from batch_runner import run_batch, BatchRequest, BatchResponse
     return run_batch, BatchRequest, BatchResponse
 
-app = FastAPI(title="ModDuel API", version="1.0.0")
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    try:
+        init_db()
+    except Exception as e:
+        print(f"Database initialization failed: {e}")
+    yield
+
+app = FastAPI(title="ModDuel API", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -45,15 +55,6 @@ app.add_middleware(
     expose_headers=["*"],
     max_age=600,
 )
-
-
-@app.on_event("startup")
-def startup():
-    try:
-        init_db()
-    except Exception as e:
-        print(f"Database initialization failed: {e}")
-
 
 # Handle OPTIONS requests for CORS preflight
 @app.options("/{full_path:path}")
@@ -204,7 +205,7 @@ def get_scenario_detail(scenario_id: str):
 
 
 @app.post("/api/runs/start")
-def start_run(req: StartRunRequest, db: Session = Depends(get_db)):
+def start_run(req: StartRunRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     # Validate scenario
     scenario = get_scenario(req.scenario_id)
     if not scenario:
@@ -215,24 +216,34 @@ def start_run(req: StartRunRequest, db: Session = Depends(get_db)):
 
     run_id = str(uuid.uuid4())[:8]
 
-    run = ScenarioRun(
-        id=run_id,
-        scenario_id=req.scenario_id,
-        agent_mode=req.agent_mode,
-        model=req.model,
-        status="pending",
-        started_at=datetime.utcnow(),
-    )
-    db.add(run)
-    db.commit()
+    # Use a try block to gracefully fail and return 500 with a text response if DB write fails 
+    try:
+        run = ScenarioRun(
+            id=run_id,
+            scenario_id=req.scenario_id,
+            agent_mode=req.agent_mode,
+            model=req.model,
+            status="pending",
+            started_at=datetime.utcnow(),
+        )
+        db.add(run)
+        db.commit()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
-    # Start agent in background thread
-    thread = threading.Thread(
-        target=_run_agent_and_score,
-        args=(run_id, req.scenario_id, req.agent_mode, req.model),
-        daemon=True,
-    )
-    thread.start()
+    import os
+    if os.environ.get("VERCEL"):
+        # run synchronously on vercel to make sure the process doesn't die before it begins but limit max turn or whatever
+        # However, vercel function timeout might hit. Using background_tasks keeps the HTTP request open slightly longer depending on the framework config.
+        background_tasks.add_task(_run_agent_and_score, run_id, req.scenario_id, req.agent_mode, req.model)
+    else:
+        # Start agent in background thread locally
+        thread = threading.Thread(
+            target=_run_agent_and_score,
+            args=(run_id, req.scenario_id, req.agent_mode, req.model),
+            daemon=True,
+        )
+        thread.start()
 
     return {"run_id": run_id, "status": "started"}
 

@@ -2,7 +2,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 import os
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./modduel.db")
+# Check if we are running in a Vercel-like environment
+is_serverless = os.environ.get("VERCEL") or os.environ.get("VERCEL_URL")
+
+default_db = "sqlite:////tmp/modduel.db" if is_serverless else "sqlite:///./modduel.db"
+DATABASE_URL = os.getenv("DATABASE_URL", default_db)
 
 # Lazy initialization to avoid import errors
 _engine = None
@@ -27,10 +31,7 @@ def get_engine():
         except Exception as e:
             print(f"Warning: Could not initialize database: {e}")
             # Fall back to SQLite
-            _engine = create_engine("sqlite:///./modduel.db", connect_args={"check_same_thread": False})
-    return _engine
-
-def get_session_factory():
+            _engine = create_engine(default_db, connect_args={"check_same_thread": False})
     global _SessionLocal
     if _SessionLocal is None:
         _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=get_engine())
