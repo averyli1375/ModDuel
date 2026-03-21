@@ -38,10 +38,17 @@ app = FastAPI(title="ModDuel API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "https://modduel.vercel.app"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "https://modduel.vercel.app",
+        "https://modduelbackend.vercel.app"
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=600,
 )
 
 
@@ -51,6 +58,12 @@ def startup():
         init_db()
     except Exception as e:
         print(f"Database initialization failed: {e}")
+
+
+# Handle OPTIONS requests for CORS preflight
+@app.options("/{full_path:path}")
+async def preflight_handler(full_path: str):
+    return {"status": "ok"}
 
 
 # --- Request/Response Models ---
@@ -164,6 +177,12 @@ def _run_agent_and_score(run_id: str, scenario_id: str, agent_mode: str, model: 
 
 
 # --- Routes ---
+
+
+@app.get("/api/health")
+def health_check():
+    """Health check endpoint to verify CORS is working"""
+    return {"status": "ok", "message": "Backend is running"}
 
 
 @app.get("/api/scenarios")
