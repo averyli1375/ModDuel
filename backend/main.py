@@ -14,6 +14,7 @@ from models import ScenarioRun, AgentAction, RunScore
 from scenarios import get_all_scenarios, get_scenario
 from agent import run_agent
 from scorer import score_run
+from batch_runner import run_batch, BatchRequest, BatchResponse
 
 app = FastAPI(title="ModDuel API", version="1.0.0")
 
@@ -261,6 +262,15 @@ def compare_runs(run_ids: str, db: Session = Depends(get_db)):
             )
 
     return {"runs": results}
+
+
+@app.post("/api/batch", response_model=BatchResponse)
+async def batch_run(req: BatchRequest):
+    """Run all scenarios in a folder as single-shot Claude calls. No DB involvement."""
+    try:
+        return await run_batch(req)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 if __name__ == "__main__":
