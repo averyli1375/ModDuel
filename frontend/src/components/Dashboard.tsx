@@ -26,21 +26,24 @@ export default function Dashboard({
   currentRun,
   comparisonRun,
 }: DashboardProps) {
-  if (!currentRun?.score) {
+  const primaryRun = currentRun || comparisonRun;
+  const secondaryRun = currentRun && comparisonRun ? comparisonRun : null;
+
+  if (!primaryRun?.score) {
     return (
       <div className="wanted-poster border-4 border-double border-wood-dark p-6 text-center animate-fade-in relative shadow-lg">
         <h2 className="font-[family-name:var(--font-western)] text-wood-dark text-3xl mb-4 tracking-widest drop-shadow-sm">
           THE RECKONING
         </h2>
         <p className="text-wood-dark font-serif italic text-lg opacity-80">
-          Run a scenario to see the results, partner.
+          Run a scenario or select a previous run to see the results, partner.
         </p>
       </div>
     );
   }
 
-  const score = currentRun.score;
-  const compScore = comparisonRun?.score;
+  const score = primaryRun.score;
+  const compScore = secondaryRun?.score;
 
   // Bar chart data
   const barData = [
@@ -117,7 +120,7 @@ export default function Dashboard({
             {/* Current run score */}
             <div className="text-center relative">
               <p className="text-xs text-wood-dark uppercase tracking-widest mb-2 font-bold font-mono">
-                {currentRun.agent_mode === "guarded"
+                {primaryRun.agent_mode === "guarded"
                   ? "LAWMAN (Guarded)"
                   : "OUTLAW (Baseline)"}
               </p>
@@ -145,7 +148,7 @@ export default function Dashboard({
               </div>
               <div className="text-center relative">
                 <p className="text-xs text-wood-dark uppercase tracking-widest mb-2 font-bold font-mono">
-                  {comparisonRun?.agent_mode === "guarded"
+                  {secondaryRun?.agent_mode === "guarded"
                     ? "LAWMAN (Guarded)"
                     : "OUTLAW (Baseline)"}
                 </p>
@@ -232,14 +235,14 @@ export default function Dashboard({
               <Bar
                 dataKey="current"
                 fill="#d4a017"
-                name={currentRun.agent_mode}
+                name={primaryRun.agent_mode}
                 radius={[4, 4, 0, 0]}
               />
               {compScore && (
                 <Bar
                   dataKey="comparison"
                   fill="#4a7c59"
-                  name={comparisonRun?.agent_mode || "comparison"}
+                  name={secondaryRun?.agent_mode || "comparison"}
                   radius={[4, 4, 0, 0]}
                 />
               )}

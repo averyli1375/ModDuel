@@ -6,12 +6,21 @@
     {
       "src": "/api/(.*)",
       "dest": "/api/index.py",
+<<<<<<< HEAD
       "headers": [{ "key": "Access-Control-Allow-Origin", "value": "https://app.example" },
         { "key": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS" },
         { "key": "Access-Control-Allow-Headers", "value": "Content-Type, Authorization" },
         { "key": "Access-Control-Allow-Credentials", "value": "true" }
     ]
       
+=======
+      "headers": {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+        "Access-Control-Allow-Headers": "*",
+        "Access-Control-Max-Age": "600"
+      }
+>>>>>>> 65cbf28e88c9ea3d2f06296bfe1019306da4de91
     }
   ]
 }
