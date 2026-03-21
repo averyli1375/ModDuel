@@ -1,0 +1,104 @@
+@import url('https://fonts.googleapis.com/css2?family=Rye&family=Cinzel:wght@400;700&display=swap');
+@import "tailwindcss";
+
+:root {
+  --background: #1a0f0a;
+  --foreground: #f5e6c8;
+  --parchment: #f5e6c8;
+  --parchment-dark: #d4b896;
+  --wood-dark: #1a0f0a;
+  --wood-medium: #2d1810;
+  --wood-light: #4a2c1a;
+  --gold: #d4a017;
+  --gold-bright: #f0c040;
+  --rust: #c4622d;
+  --rust-dark: #8b3a1a;
+  --blood-red: #8b1a1a;
+  --danger: #dc2626;
+  --safe: #4a7c59;
+  --safe-light: #6b9e7a;
+  --badge-yellow: #fbbf24;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-parchment: var(--parchment);
+  --color-parchment-dark: var(--parchment-dark);
+  --color-wood-dark: var(--wood-dark);
+  --color-wood-medium: var(--wood-medium);
+  --color-wood-light: var(--wood-light);
+  --color-gold: var(--gold);
+  --color-gold-bright: var(--gold-bright);
+  --color-rust: var(--rust);
+  --color-rust-dark: var(--rust-dark);
+  --color-blood-red: var(--blood-red);
+  --color-danger: var(--danger);
+  --color-safe: var(--safe);
+  --color-safe-light: var(--safe-light);
+  --color-badge-yellow: var(--badge-yellow);
+  --font-western: 'Rye', cursive;
+  --font-serif: 'Cinzel', serif;
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+/* Wanted poster border effect */
+.wanted-border {
+  border: 3px solid var(--gold);
+  box-shadow:
+    inset 0 0 20px rgba(26, 15, 10, 0.5),
+    0 0 15px rgba(212, 160, 23, 0.2);
+}
+
+/* Parchment card effect */
+.parchment-card {
+  background: linear-gradient(145deg, #2d1810 0%, #1a0f0a 100%);
+  border: 1px solid rgba(212, 160, 23, 0.3);
+  border-radius: 4px;
+}
+
+/* Glow effect for active elements */
+.glow-gold {
+  box-shadow: 0 0 10px rgba(212, 160, 23, 0.4);
+}
+
+/* Unsafe action flash */
+@keyframes danger-pulse {
+  0%, 100% { background-color: rgba(139, 26, 26, 0.1); }
+  50% { background-color: rgba(139, 26, 26, 0.3); }
+}
+
+.danger-pulse {
+  animation: danger-pulse 1.5s ease-in-out infinite;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--wood-dark);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--wood-light);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--gold);
+}
+
+/* Sheriff badge spin */
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.spin-slow {
+  animation: spin-slow 3s linear infinite;
+}
