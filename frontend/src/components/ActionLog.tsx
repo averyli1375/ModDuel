@@ -11,17 +11,17 @@ export default function ActionLog({ actions, isRunning }: ActionLogProps) {
   const getToolIcon = (toolName: string | null): string => {
     switch (toolName) {
       case "read_email":
-        return "📧";
+        return "[R]";
       case "send_email":
-        return "📤";
+        return "[S]";
       case "search_docs":
-        return "🔍";
+        return "[D]";
       case "submit_final_action":
-        return "🏁";
+        return "[F]";
       case "edit_config":
-        return "⚙️";
+        return "[C]";
       default:
-        return "💬";
+        return "[M]";
     }
   };
 
@@ -51,21 +51,23 @@ export default function ActionLog({ actions, isRunning }: ActionLogProps) {
   };
 
   return (
-    <div className="parchment-card p-4 h-full flex flex-col">
-      <h2 className="font-[family-name:var(--font-western)] text-gold text-lg mb-3 flex items-center gap-2">
-        <span className="text-xl">📜</span> TRAIL LOG
-        {isRunning && (
-          <span className="ml-auto text-xs text-gold-bright animate-pulse">
-            ● LIVE
-          </span>
-        )}
-      </h2>
-      <div className="flex-1 overflow-y-auto space-y-1 font-[family-name:var(--font-mono)] text-xs">
-        {actions.length === 0 ? (
-          <p className="text-parchment-dark italic text-sm">
-            No trail marks yet... waiting for the agent to ride out.
-          </p>
-        ) : (
+    <div className="wood-board p-2 h-full flex flex-col items-center">
+      <div className="terminal-panel w-full h-full flex flex-col border-8 border-wood-darker bg-zinc-900 rounded p-4 relative overflow-hidden shadow-2xl">
+        {/* Terminal Header */}
+        <h2 className="font-[family-name:var(--font-western)] text-zinc-500 text-sm mb-3 flex items-center justify-between border-b border-zinc-700/50 pb-2 uppercase tracking-wide">
+          <span>Agent's Terminal</span>
+          {isRunning && (
+            <span className="text-xs text-green-500 animate-pulse font-mono tracking-widest">
+              ■ LIVE
+            </span>
+          )}
+        </h2>
+        <div className="flex-1 overflow-y-auto space-y-2 font-[family-name:var(--font-mono)] text-xs terminal-text custom-scrollbar">
+          {actions.length === 0 ? (
+            <p className="text-green-800/60 italic text-sm mt-2">
+              AWAITING COMMAND...
+            </p>
+          ) : (
           actions.map((action) => {
             const unsafeTypes = getUnsafeTypes(action.unsafe_types);
 
@@ -73,11 +75,11 @@ export default function ActionLog({ actions, isRunning }: ActionLogProps) {
               return (
                 <div
                   key={action.id}
-                  className="p-2 rounded bg-wood-medium/30 border border-wood-light/10"
+                  className="p-2 rounded bg-wood-medium/30 border border-wood-light/10 animate-slide-in"
                 >
                   <div className="flex items-start gap-2">
                     <span className="text-parchment-dark">[T{action.turn}]</span>
-                    <span>💬</span>
+                    <span>[M]</span>
                     <span className="text-parchment-dark leading-relaxed">
                       {action.content?.slice(0, 200)}
                       {(action.content?.length || 0) > 200 ? "..." : ""}
@@ -90,7 +92,7 @@ export default function ActionLog({ actions, isRunning }: ActionLogProps) {
             return (
               <div
                 key={action.id}
-                className={`p-2 rounded border ${
+                className={`p-2 rounded border animate-slide-in ${
                   action.is_unsafe
                     ? "bg-blood-red/15 border-danger/40 danger-pulse"
                     : "bg-wood-medium/30 border-wood-light/10"
@@ -119,7 +121,7 @@ export default function ActionLog({ actions, isRunning }: ActionLogProps) {
                             key={i}
                             className="px-1.5 py-0.5 text-[10px] rounded bg-danger/20 text-danger border border-danger/30 uppercase tracking-wider"
                           >
-                            ⚠️ {type.replace(/_/g, " ")}
+                            ! {type.replace(/_/g, " ")}
                           </span>
                         ))}
                       </div>
@@ -131,11 +133,20 @@ export default function ActionLog({ actions, isRunning }: ActionLogProps) {
           })
         )}
         {isRunning && (
-          <div className="p-2 text-gold-bright animate-pulse flex items-center gap-2">
-            <span className="spin-slow inline-block">⭐</span>
-            Agent is working...
+          <div className="p-2 text-green-500 animate-pulse flex items-center gap-2 font-mono">
+            <span className="spin-slow inline-block text-lg">⚙</span>
+            Processing...
           </div>
         )}
+      </div>
+      
+      {/* Decorative buttons at bottom */}
+      <div className="flex gap-2 mt-3 pt-2 border-t border-zinc-800">
+        <div className="w-8 h-3 bg-zinc-800 rounded shadow-inner" />
+        <div className="w-8 h-3 bg-zinc-800 rounded shadow-inner" />
+        <div className="w-8 h-3 bg-zinc-800 rounded shadow-inner" />
+        <div className="ml-auto w-16 h-3 bg-zinc-800 rounded shadow-inner" />
+      </div>
       </div>
     </div>
   );

@@ -1,0 +1,12 @@
+<svg width="100" height="150" viewBox="0 0 100 150" xmlns="http://www.w3.org/2000/svg">
+  <g fill="#150a06">
+    <!-- Main trunk -->
+    <rect x="40" y="30" width="20" height="120" rx="10" />
+    
+    <!-- Left arm -->
+    <path d="M45,80 Q20,80 20,60 L20,40" stroke="#150a06" stroke-width="15" stroke-linecap="round" fill="none" />
+    
+    <!-- Right arm -->
+    <path d="M55,60 Q80,60 80,40 L80,20" stroke="#150a06" stroke-width="15" stroke-linecap="round" fill="none" />
+  </g>
+</svg>

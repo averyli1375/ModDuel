@@ -1,0 +1,85 @@
+<svg width="600" height="600" viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Wood texturing -->
+    <pattern id="wood-planks" patternUnits="userSpaceOnUse" width="40" height="20">
+      <rect width="40" height="20" fill="#8b5a2b"/>
+      <line x1="0" y1="20" x2="40" y2="20" stroke="#4a3018" stroke-width="2"/>
+    </pattern>
+    <pattern id="wood-dark" patternUnits="userSpaceOnUse" width="30" height="15">
+      <rect width="30" height="15" fill="#5c3a21"/>
+      <line x1="0" y1="15" x2="30" y2="15" stroke="#2e1d10" stroke-width="2"/>
+    </pattern>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="4" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- Upper Floor -->
+  <rect x="50" y="50" width="350" height="250" fill="url(#wood-planks)"/>
+  <rect x="30" y="30" width="390" height="20" fill="#2e1d10"/>
+  
+  <!-- Sign -->
+  <rect x="100" y="70" width="250" height="80" fill="#2e1d10" rx="10"/>
+  <text x="225" y="125" font-family="serif" font-weight="bold" font-size="45" text-anchor="middle" fill="#d4af37" letter-spacing="4">SALOON</text>
+  
+  <!-- Upper Windows -->
+  <rect x="100" y="170" width="60" height="90" fill="#ffd700" opacity="0.8" filter="url(#glow)"/>
+  <rect x="100" y="170" width="60" height="90" fill="none" stroke="#2e1d10" stroke-width="5"/>
+  <line x1="130" y1="170" x2="130" y2="260" stroke="#2e1d10" stroke-width="4"/>
+  
+  <rect x="290" y="170" width="60" height="90" fill="#ffd700" opacity="0.8" filter="url(#glow)"/>
+  <rect x="290" y="170" width="60" height="90" fill="none" stroke="#2e1d10" stroke-width="5"/>
+  <line x1="320" y1="170" x2="320" y2="260" stroke="#2e1d10" stroke-width="4"/>
+  
+  <!-- Ground Floor -->
+  <rect x="50" y="300" width="350" height="300" fill="url(#wood-planks)"/>
+  
+  <!-- Balcony/Overhang -->
+  <polygon points="10,320 430,320 390,290 50,290" fill="#4a3018"/>
+  <rect x="10" y="315" width="420" height="15" fill="#2e1d10"/>
+  
+  <!-- Balcony railing -->
+  <rect x="30" y="260" width="390" height="10" fill="#2e1d10"/>
+  <!-- Railing posts -->
+  <rect x="40" y="270" width="5" height="20" fill="#2e1d10"/>
+  <rect x="80" y="270" width="5" height="20" fill="#2e1d10"/>
+  <rect x="120" y="270" width="5" height="20" fill="#2e1d10"/>
+  <rect x="160" y="270" width="5" height="20" fill="#2e1d10"/>
+  <rect x="200" y="270" width="5" height="20" fill="#2e1d10"/>
+  <rect x="240" y="270" width="5" height="20" fill="#2e1d10"/>
+  <rect x="280" y="270" width="5" height="20" fill="#2e1d10"/>
+  <rect x="320" y="270" width="5" height="20" fill="#2e1d10"/>
+  <rect x="360" y="270" width="5" height="20" fill="#2e1d10"/>
+  <rect x="400" y="270" width="5" height="20" fill="#2e1d10"/>
+  
+  <!-- Ground Pillars -->
+  <rect x="30" y="330" width="15" height="270" fill="#4a3018"/>
+  <rect x="215" y="330" width="15" height="270" fill="#4a3018"/>
+  <rect x="405" y="330" width="15" height="270" fill="#4a3018"/>
+  
+  <!-- Swinging Doors -->
+  <rect x="150" y="380" width="150" height="150" fill="#2e1d10"/>
+  <rect x="155" y="400" width="65" height="110" fill="#8b5a2b" rx="5"/>
+  <rect x="230" y="400" width="65" height="110" fill="#8b5a2b" rx="5"/>
+  <line x1="155" y1="420" x2="220" y2="420" stroke="#2e1d10" stroke-width="3"/>
+  <line x1="230" y1="420" x2="295" y2="420" stroke="#2e1d10" stroke-width="3"/>
+  <line x1="155" y1="440" x2="220" y2="440" stroke="#2e1d10" stroke-width="3"/>
+  <line x1="230" y1="440" x2="295" y2="440" stroke="#2e1d10" stroke-width="3"/>
+  <line x1="155" y1="460" x2="220" y2="460" stroke="#2e1d10" stroke-width="3"/>
+  <line x1="230" y1="460" x2="295" y2="460" stroke="#2e1d10" stroke-width="3"/>
+  
+  <!-- Ground Windows -->
+  <rect x="70" y="390" width="60" height="90" fill="#ffd700" opacity="0.8" filter="url(#glow)"/>
+  <rect x="70" y="390" width="60" height="90" fill="none" stroke="#2e1d10" stroke-width="5"/>
+  
+  <rect x="320" y="390" width="60" height="90" fill="#ffd700" opacity="0.8" filter="url(#glow)"/>
+  <rect x="320" y="390" width="60" height="90" fill="none" stroke="#2e1d10" stroke-width="5"/>
+  
+  <!-- Boardwalk -->
+  <polygon points="-10,600 450,600 430,550 10,550" fill="url(#wood-dark)"/>
+  <rect x="-10" y="590" width="460" height="10" fill="#2e1d10"/>
+</svg>
