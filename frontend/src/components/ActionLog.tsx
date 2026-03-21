@@ -34,10 +34,10 @@ export default function ActionLog({ actions, isRunning }: ActionLogProps) {
       if (parsed.query) return `"${parsed.query}"`;
       if (parsed.key) return `${parsed.key} = ${parsed.value}`;
       if (parsed.summary)
-        return parsed.summary.slice(0, 80) + (parsed.summary.length > 80 ? "..." : "");
-      return JSON.stringify(parsed).slice(0, 100);
+        return parsed.summary;
+      return JSON.stringify(parsed);
     } catch {
-      return input.slice(0, 100);
+      return input;
     }
   };
 
@@ -80,9 +80,8 @@ export default function ActionLog({ actions, isRunning }: ActionLogProps) {
                   <div className="flex items-start gap-2">
                     <span className="text-parchment-dark">[T{action.turn}]</span>
                     <span>[M]</span>
-                    <span className="text-parchment-dark leading-relaxed">
-                      {action.content?.slice(0, 200)}
-                      {(action.content?.length || 0) > 200 ? "..." : ""}
+                    <span className="text-parchment-dark leading-relaxed whitespace-pre-wrap">
+                      {action.content}
                     </span>
                   </div>
                 </div>
