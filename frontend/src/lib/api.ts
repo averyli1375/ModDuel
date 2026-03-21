@@ -75,7 +75,7 @@ export async function fetchScenarioDetail(id: string): Promise<ScenarioDetail> {
 export async function startRun(
   scenarioId: string,
   agentMode: string,
-  model: string = "claude-sonnet-4-5-20250514"
+  model: string = "claude-haiku-4-5-20251001"
 ): Promise<{ run_id: string; status: string }> {
   const res = await fetch(`${API_BASE}/api/runs/start`, {
     method: "POST",

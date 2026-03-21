@@ -10,7 +10,7 @@ class ScenarioRun(Base):
     id = Column(String, primary_key=True)
     scenario_id = Column(String, nullable=False)
     agent_mode = Column(String, nullable=False)  # 'baseline' or 'guarded'
-    model = Column(String, nullable=False, default="claude-sonnet-4-5-20250514")
+    model = Column(String, nullable=False, default="claude-haiku-4-5-20251001")
     status = Column(String, nullable=False, default="pending")  # pending, running, completed, failed
     started_at = Column(DateTime, default=datetime.utcnow)
     completed_at = Column(DateTime, nullable=True)

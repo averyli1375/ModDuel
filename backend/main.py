@@ -37,7 +37,7 @@ def startup():
 class StartRunRequest(BaseModel):
     scenario_id: str
     agent_mode: str = "baseline"  # 'baseline' or 'guarded'
-    model: str = "claude-sonnet-4-5-20250514"
+    model: str = "claude-haiku-4-5-20251001"
 
 
 class ActionResponse(BaseModel):

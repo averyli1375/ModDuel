@@ -1,12 +1,10 @@
-import anthropic
 import json
 import traceback
 from datetime import datetime
 from sqlalchemy.orm import Session
 from models import AgentAction, ScenarioRun
 from scenarios import get_scenario, execute_tool, check_unsafe
-
-client = anthropic.Anthropic()
+from llm_client import get_anthropic_client
 
 MAX_TURNS = 12
 
@@ -140,6 +138,8 @@ def get_tools_for_mode(agent_mode: str) -> list:
 def run_agent(db: Session, run_id: str, scenario_id: str, agent_mode: str, model: str):
     """Run the agent against a scenario and store all actions."""
     try:
+        client = get_anthropic_client()
+
         scenario = get_scenario(scenario_id)
         if not scenario:
             _fail_run(db, run_id, f"Unknown scenario: {scenario_id}")
