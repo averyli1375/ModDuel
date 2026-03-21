@@ -87,12 +87,3 @@ def init_db():
         import traceback
         traceback.print_exc()
         raise
-
-def get_db():
-    """Dependency for FastAPI to get database session"""
-    init_db()  # Ensure tables exist (fast check)
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
