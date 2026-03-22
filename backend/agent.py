@@ -4,87 +4,102 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 from models import AgentAction, ScenarioRun
 from scenarios import get_scenario, execute_tool, check_unsafe
-from llm_client import get_anthropic_client
+from llm_client import get_groq_client
 
 MAX_TURNS = 12
 
 TOOLS = [
     {
-        "name": "read_email",
-        "description": "Read an email from your inbox by its ID. Use this to review emails assigned to you.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "email_id": {
-                    "type": "string",
-                    "description": "The ID of the email to read (e.g., 'email_1')",
-                }
-            },
-            "required": ["email_id"],
-        },
+        "type": "function",
+        "function": {
+            "name": "read_email",
+            "description": "Read an email from your inbox by its ID. Use this to review emails assigned to you.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "email_id": {
+                        "type": "string",
+                        "description": "The ID of the email to read (e.g., 'email_1')",
+                    }
+                },
+                "required": ["email_id"],
+            }
+        }
     },
     {
-        "name": "send_email",
-        "description": "Send an email to a recipient within the company or externally.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "to": {"type": "string", "description": "Recipient email address"},
-                "subject": {"type": "string", "description": "Email subject line"},
-                "body": {"type": "string", "description": "Email body content"},
-            },
-            "required": ["to", "subject", "body"],
-        },
+        "type": "function",
+        "function": {
+            "name": "send_email",
+            "description": "Send an email to a recipient within the company or externally.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "to": {"type": "string", "description": "Recipient email address"},
+                    "subject": {"type": "string", "description": "Email subject line"},
+                    "body": {"type": "string", "description": "Email body content"},
+                },
+                "required": ["to", "subject", "body"],
+            }
+        }
     },
     {
-        "name": "search_docs",
-        "description": "Search through internal company documents and knowledge base.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "query": {
-                    "type": "string",
-                    "description": "Search query to find relevant documents",
-                }
-            },
-            "required": ["query"],
-        },
+        "type": "function",
+        "function": {
+            "name": "search_docs",
+            "description": "Search through internal company documents and knowledge base.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Search query to find relevant documents",
+                    }
+                },
+                "required": ["query"],
+            }
+        }
     },
     {
-        "name": "submit_final_action",
-        "description": "Submit your final deliverable to complete the assigned task. Use this when you have finished all required work.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "summary": {
-                    "type": "string",
-                    "description": "Summary of the completed work",
+        "type": "function",
+        "function": {
+            "name": "submit_final_action",
+            "description": "Submit your final deliverable to complete the assigned task. Use this when you have finished all required work.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "summary": {
+                        "type": "string",
+                        "description": "Summary of the completed work",
+                    },
+                    "notes": {
+                        "type": "string",
+                        "description": "Any additional notes or observations",
+                    },
                 },
-                "notes": {
-                    "type": "string",
-                    "description": "Any additional notes or observations",
-                },
-            },
-            "required": ["summary"],
-        },
+                "required": ["summary"],
+            }
+        }
     },
     {
-        "name": "edit_config",
-        "description": "Edit a system configuration parameter. Modifies the system.config file.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "key": {
-                    "type": "string",
-                    "description": "The configuration key to modify",
+        "type": "function",
+        "function": {
+            "name": "edit_config",
+            "description": "Edit a system configuration parameter. Modifies the system.config file.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "key": {
+                        "type": "string",
+                        "description": "The configuration key to modify",
+                    },
+                    "value": {
+                        "type": "string",
+                        "description": "The new value to set",
+                    },
                 },
-                "value": {
-                    "type": "string",
-                    "description": "The new value to set",
-                },
-            },
-            "required": ["key", "value"],
-        },
+                "required": ["key", "value"],
+            }
+        }
     },
 ]
 
@@ -138,7 +153,7 @@ def get_tools_for_mode(agent_mode: str) -> list:
 def run_agent(db: Session, run_id: str, scenario_id: str, agent_mode: str, model: str):
     """Run the agent against a scenario and store all actions."""
     try:
-        client = get_anthropic_client()
+        client = get_groq_client()
 
         scenario = get_scenario(scenario_id)
         if not scenario:
@@ -159,7 +174,10 @@ def run_agent(db: Session, run_id: str, scenario_id: str, agent_mode: str, model
             f"Use submit_final_action when finished."
         )
 
-        messages = [{"role": "user", "content": task_prompt}]
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": task_prompt}
+        ]
         tools = get_tools_for_mode(agent_mode)
 
         # Update run status
@@ -173,49 +191,75 @@ def run_agent(db: Session, run_id: str, scenario_id: str, agent_mode: str, model
         while turn < MAX_TURNS and not completed:
             turn += 1
 
-            response = client.messages.create(
+            # Groq model override (the frontend defaults to claude-haiku-4-5-20251001)
+            if "claude" in model or "haiku" in model:
+                model = "llama-3.1-8b-instant"
+
+            response = client.chat.completions.create(
                 model=model,
-                max_tokens=2048,
-                system=system_prompt,
-                tools=tools,
                 messages=messages,
+                tools=tools,
+                tool_choice="auto",
+                max_tokens=2048,
             )
 
-            # Add assistant response to conversation
-            messages.append({"role": "assistant", "content": response.content})
+            response_message = response.choices[0].message
 
-            # Process each content block
-            tool_results = []
-            for block in response.content:
-                if block.type == "text" and block.text.strip():
-                    action = AgentAction(
-                        run_id=run_id,
-                        turn=turn,
-                        action_type="message",
-                        content=block.text,
-                        timestamp=datetime.utcnow(),
-                    )
-                    db.add(action)
-                    db.commit()
+            # Add assistant message. Must include tool_calls if any, but also raw content
+            assistant_msg = {"role": "assistant"}
+            if response_message.content:
+                assistant_msg["content"] = response_message.content
+                action = AgentAction(
+                    run_id=run_id,
+                    turn=turn,
+                    action_type="message",
+                    content=response_message.content,
+                    timestamp=datetime.utcnow(),
+                )
+                db.add(action)
+                db.commit()
+            
+            if response_message.tool_calls:
+                assistant_msg["tool_calls"] = [
+                    {
+                        "id": tc.id,
+                        "type": tc.type,
+                        "function": {
+                            "name": tc.function.name,
+                            "arguments": tc.function.arguments
+                        }
+                    } for tc in response_message.tool_calls
+                ]
+            else:
+                if "content" not in assistant_msg:
+                    assistant_msg["content"] = ""
+            
+            messages.append(assistant_msg)
 
-                elif block.type == "tool_use":
-                    tool_input_str = json.dumps(block.input)
+            if response_message.tool_calls:
+                for tool_call in response_message.tool_calls:
+                    try:
+                        tool_input = json.loads(tool_call.function.arguments)
+                    except Exception:
+                        tool_input = {}
+
+                    tool_input_str = json.dumps(tool_input)
 
                     # Execute the tool in our sandbox
                     tool_output = execute_tool(
-                        block.name, block.input, scenario, agent_mode
+                        tool_call.function.name, tool_input, scenario, agent_mode
                     )
                     tool_output_str = json.dumps(tool_output)
 
                     # Check for unsafe behavior
-                    is_unsafe, unsafe_types = check_unsafe(block.name, block.input)
+                    is_unsafe, unsafe_types = check_unsafe(tool_call.function.name, tool_input)
 
                     # Store the action
                     action = AgentAction(
                         run_id=run_id,
                         turn=turn,
                         action_type="tool_call",
-                        tool_name=block.name,
+                        tool_name=tool_call.function.name,
                         tool_input=tool_input_str,
                         tool_output=tool_output_str,
                         is_unsafe=is_unsafe,
@@ -226,23 +270,18 @@ def run_agent(db: Session, run_id: str, scenario_id: str, agent_mode: str, model
                     db.commit()
 
                     # Prepare tool result for next turn
-                    tool_results.append(
-                        {
-                            "type": "tool_result",
-                            "tool_use_id": block.id,
-                            "content": tool_output_str,
-                        }
-                    )
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call.id,
+                        "name": tool_call.function.name,
+                        "content": tool_output_str
+                    })
 
-                    if block.name == "submit_final_action":
+                    if tool_call.function.name == "submit_final_action":
                         completed = True
 
-            # If there were tool calls, add results as user message
-            if tool_results:
-                messages.append({"role": "user", "content": tool_results})
-
             # Stop if the model ended its turn without tool calls, or task is done
-            if response.stop_reason == "end_turn" and not tool_results:
+            elif response.choices[0].finish_reason == "stop":
                 break
 
         # Mark run as completed
