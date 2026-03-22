@@ -31,6 +31,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [pastRuns, setPastRuns] = useState<RunSummary[]>([]);
   const [selectedComparison, setSelectedComparison] = useState<string>("");
+  const [showResultsPopup, setShowResultsPopup] = useState(true);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Fetch scenarios on mount
@@ -96,11 +97,18 @@ export default function Home() {
       setIsRunning(true);
       setCurrentRun(null);
       setComparisonRun(null);
+      setShowResultsPopup(true);
       startPolling(result.run_id);
     } catch (err) {
       setError(`Failed to start run: ${err}`);
     }
   };
+
+  const handleViewResults = () => {
+    setActiveTab("reckoning");
+  };
+
+  const isResultsReady = !isRunning && currentRun?.status === "completed" && currentRun?.score;
 
   const handleLoadComparison = async (runId: string) => {
     if (!runId) {
@@ -307,12 +315,14 @@ export default function Home() {
 
               {/* Run button */}
               <button
-                onClick={handleStartRun}
-                disabled={isRunning || !selectedScenario}
+                onClick={isResultsReady ? handleViewResults : handleStartRun}
+                disabled={isRunning || (!selectedScenario && !isResultsReady)}
                 className={`w-full py-4 min-h-[4.5rem] shrink-0 flex items-center justify-center relative group transition-all active:scale-95 overflow-hidden rounded-sm ${
                   isRunning
                     ? "wood-panel border-2 border-wood-darker text-wood-light/50 cursor-not-allowed"
-                    : "wood-board border-2 border-gold text-gold-bright shadow-[0_0_15px_rgba(212,160,23,0.15)] hover:shadow-[0_0_25px_rgba(212,160,23,0.4)] hover:brightness-110 cursor-pointer"
+                    : isResultsReady
+                      ? "wood-board border-2 border-safe text-safe shadow-[0_0_15px_rgba(34,197,94,0.15)] hover:shadow-[0_0_25px_rgba(34,197,94,0.4)] hover:brightness-110 cursor-pointer"
+                      : "wood-board border-2 border-gold text-gold-bright shadow-[0_0_15px_rgba(212,160,23,0.15)] hover:shadow-[0_0_25px_rgba(212,160,23,0.4)] hover:brightness-110 cursor-pointer"
                 }`}
                 style={{ 
                   textShadow: '2px 2px 4px rgba(0,0,0,0.9)',
@@ -326,7 +336,14 @@ export default function Home() {
 
                 <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent pointer-events-none transition-opacity group-hover:opacity-50" />
                 <span className="relative z-10 font-[family-name:var(--font-western)] text-xl uppercase tracking-wider flex items-center justify-center gap-2 w-full pb-1 whitespace-nowrap">
-                  {isRunning ? "SADDLING..." : (
+                  {isRunning ? "SADDLING..." : isResultsReady ? (
+                    <>
+                      <span>View Results</span>
+                      <span className="text-lg">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-arrow-right"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                      </span>
+                    </>
+                  ) : (
                     <>
                       <span className="text-lg">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-swords"><polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5"/><line x1="13" y1="19" x2="19" y2="13"/><line x1="16" y1="16" x2="20" y2="20"/><line x1="19" y1="21" x2="21" y2="19"/><polyline points="14.5 6.5 18 3 21 3 21 6 17.5 9.5"/><line x1="5" y1="14" x2="9" y2="18"/><line x1="7" y1="17" x2="4" y2="20"/><line x1="3" y1="19" x2="5" y2="21"/></svg>
@@ -421,6 +438,52 @@ export default function Home() {
       <footer className="border-t border-wood-light/20 py-3 text-center text-xs text-parchment-dark rope-divider relative z-10">
         ModDuel Arena | Frontier Alignment Office | HooHacks 2026
       </footer>
+
+      {/* Results Ready Popup */}
+      {isResultsReady && activeTab === "arena" && showResultsPopup && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] backdrop-blur-sm animate-fade-in">
+          <div className="wanted-poster border-4 border-double border-gold p-8 shadow-2xl max-w-md animate-bounce-in relative" style={{
+            boxShadow: '0_0_40px_rgba(212,160,23,0.5), inset 0_0_20px_rgba(0,0,0,0.3)'
+          }}>
+            <div className="absolute top-3 left-3 w-3 h-3 rounded-full bg-wood-darker shadow-inner" />
+            <div className="absolute top-3 right-3 w-3 h-3 rounded-full bg-wood-darker shadow-inner" />
+            <div className="absolute bottom-3 left-3 w-3 h-3 rounded-full bg-wood-darker shadow-inner" />
+            <div className="absolute bottom-3 right-3 w-3 h-3 rounded-full bg-wood-darker shadow-inner" />
+            
+            <div className="text-center space-y-6">
+              <div>
+                <h3 className="font-[family-name:var(--font-western)] text-wood-dark text-2xl mb-2 tracking-widest drop-shadow-sm">
+                  DUEL COMPLETE
+                </h3>
+                <p className="text-wood-dark/80 font-serif italic">
+                  Your results be ready, partner.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <button
+                  onClick={() => {
+                    setShowResultsPopup(false);
+                    handleViewResults();
+                  }}
+                  className="w-full px-6 py-3 bg-safe text-white font-bold uppercase rounded-sm border-2 border-safe shadow-lg hover:shadow-xl hover:brightness-110 transition-all active:scale-95 font-[family-name:var(--font-western)] tracking-wider flex items-center justify-center gap-2"
+                >
+                  <span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  </span>
+                  View Results
+                </button>
+                <button
+                  onClick={() => setShowResultsPopup(false)}
+                  className="w-full px-6 py-2 bg-wood-medium text-parchment font-bold uppercase rounded-sm border border-wood-light/30 hover:bg-wood-light/20 transition-all font-[family-name:var(--font-western)] tracking-wider"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
