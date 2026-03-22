@@ -3,21 +3,18 @@ from __future__ import annotations
 import asyncio
 import json
 import time
+import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
-from pathlib import Path
-from typing import Optional
-
-from pydantic import BaseModel
 
 from llm_client import get_anthropic_client
+from models import Scenario, BatchRun, BatchResult
+
 
 # ---------------------------------------------------------------------------
-# LLM provider abstraction
+# LLM provider abstraction (unchanged — supports future multi-model)
 # ---------------------------------------------------------------------------
-
-_BACKEND_DIR = Path(__file__).resolve().parent
 
 
 @dataclass
@@ -33,14 +30,14 @@ class LLMProvider(ABC):
         self,
         model: str,
         system_prompt: str,
-        user_prompt: str,
+        messages: list[dict],
     ) -> LLMResponse: ...
 
 
 class AnthropicProvider(LLMProvider):
-    """Single-shot Claude call using the existing synchronous client."""
+    """Claude call using the existing synchronous client, run in a thread pool."""
 
-    async def complete(self, model: str, system_prompt: str, user_prompt: str) -> LLMResponse:
+    async def complete(self, model: str, system_prompt: str, messages: list[dict]) -> LLMResponse:
         client = get_anthropic_client()
 
         def _call():
@@ -48,7 +45,7 @@ class AnthropicProvider(LLMProvider):
                 model=model,
                 max_tokens=1024,
                 system=system_prompt,
-                messages=[{"role": "user", "content": user_prompt}],
+                messages=messages,
             )
 
         loop = asyncio.get_event_loop()
@@ -63,171 +60,212 @@ class AnthropicProvider(LLMProvider):
 
 
 # ---------------------------------------------------------------------------
-# Pydantic models
-# ---------------------------------------------------------------------------
-
-
-class ScenarioFile(BaseModel):
-    id: str
-    name: str
-    system_prompt: str
-    user_prompt: str
-
-
-class BatchRequest(BaseModel):
-    folder: str = "scenarios/"
-    model: str = "claude-haiku-4-5-20251001"
-
-
-class ScenarioResult(BaseModel):
-    scenario_id: str
-    status: str  # "success" | "error"
-    output_file: Optional[str] = None
-    error: Optional[str] = None
-
-
-class BatchResponse(BaseModel):
-    batch_id: str
-    model: str
-    total: int
-    succeeded: int
-    failed: int
-    output_dir: str
-    results: list[ScenarioResult]
-
-
-# ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
 
 
-async def run_single_scenario(
-    scenario: ScenarioFile,
-    model: str,
-    output_dir: Path,
-    batch_id: str,
-    provider: LLMProvider,
-) -> ScenarioResult:
-    start = time.monotonic()
-    output_path = output_dir / f"{scenario.id}.json"
+def _build_system_prompt(scenario_dict: dict) -> str:
+    """Build the system prompt from scenario data."""
+    parts = []
 
+    if scenario_dict.get("system_prompt"):
+        parts.append(scenario_dict["system_prompt"])
+
+    parts.append(f"Your task: {scenario_dict['task']}")
+
+    documents = scenario_dict.get("documents", [])
+    if documents:
+        doc_text = "\n".join(
+            f"- {d['title']}: {d['content']}" for d in documents
+        )
+        parts.append(f"Available documents:\n{doc_text}")
+
+    config = scenario_dict.get("config", {})
+    if config:
+        config_text = "\n".join(f"  {k}: {v}" for k, v in config.items())
+        parts.append(f"System config:\n{config_text}")
+
+    return "\n\n".join(parts)
+
+
+async def run_batch(scenario_id: str, model: str, session_factory) -> dict:
+    """Run a scenario's emails cumulatively through the model, storing results in DB.
+
+    Returns a dict matching the BatchRunResponse shape expected by main.py.
+    """
+    # Load scenario from DB
+    db = session_factory()
     try:
-        llm_resp = await provider.complete(
+        scenario_row = db.query(Scenario).filter(Scenario.id == scenario_id).first()
+        if not scenario_row:
+            raise ValueError(f"Scenario not found: {scenario_id}")
+
+        # Deserialize to dict
+        scenario_dict = {
+            "id": scenario_row.id,
+            "name": scenario_row.name,
+            "description": scenario_row.description or "",
+            "task": scenario_row.task,
+            "system_prompt": scenario_row.system_prompt,
+            "emails": json.loads(scenario_row.emails_json) if scenario_row.emails_json else [],
+            "documents": json.loads(scenario_row.documents_json) if scenario_row.documents_json else [],
+            "config": json.loads(scenario_row.config_json) if scenario_row.config_json else {},
+        }
+    finally:
+        db.close()
+
+    emails = scenario_dict["emails"]
+    if not emails:
+        raise ValueError(f"Scenario '{scenario_id}' has no emails")
+
+    system_prompt = _build_system_prompt(scenario_dict)
+    batch_run_id = str(uuid.uuid4())[:12]
+
+    # Create BatchRun row
+    db = session_factory()
+    try:
+        batch_run = BatchRun(
+            id=batch_run_id,
+            scenario_id=scenario_id,
             model=model,
-            system_prompt=scenario.system_prompt,
-            user_prompt=scenario.user_prompt,
+            status="running",
+            email_count=len(emails),
         )
-        latency = time.monotonic() - start
-
-        record = {
-            "batch_id": batch_id,
-            "scenario_id": scenario.id,
-            "scenario_name": scenario.name,
-            "model": model,
-            "timestamp_utc": datetime.utcnow().isoformat() + "Z",
-            "latency_seconds": round(latency, 3),
-            "status": "success",
-            "input": {
-                "system_prompt": scenario.system_prompt,
-                "user_prompt": scenario.user_prompt,
-            },
-            "output": {
-                "response_text": llm_resp.response_text,
-                "input_tokens": llm_resp.input_tokens,
-                "output_tokens": llm_resp.output_tokens,
-            },
-            "error": None,
-        }
-        output_path.write_text(json.dumps(record, indent=2, ensure_ascii=False))
-
-        return ScenarioResult(
-            scenario_id=scenario.id,
-            status="success",
-            output_file=str(output_path.relative_to(_BACKEND_DIR.parent)),
-        )
-
-    except Exception as exc:
-        latency = time.monotonic() - start
-        error_msg = str(exc)
-        print(f"[batch_runner] ERROR on scenario '{scenario.id}': {error_msg}")
-
-        error_record = {
-            "batch_id": batch_id,
-            "scenario_id": scenario.id,
-            "scenario_name": scenario.name,
-            "model": model,
-            "timestamp_utc": datetime.utcnow().isoformat() + "Z",
-            "latency_seconds": round(latency, 3),
-            "status": "error",
-            "input": {
-                "system_prompt": scenario.system_prompt,
-                "user_prompt": scenario.user_prompt,
-            },
-            "output": None,
-            "error": error_msg,
-        }
-        output_path.write_text(json.dumps(error_record, indent=2, ensure_ascii=False))
-
-        return ScenarioResult(
-            scenario_id=scenario.id,
-            status="error",
-            output_file=str(output_path.relative_to(_BACKEND_DIR.parent)),
-            error=error_msg,
-        )
-
-
-async def run_batch(req: BatchRequest) -> BatchResponse:
-    # Resolve folder relative to the backend/ directory
-    folder = (_BACKEND_DIR / req.folder).resolve()
-
-    if not folder.is_dir():
-        raise ValueError(f"Scenario folder not found: {req.folder}")
-
-    json_files = sorted(folder.glob("*.json"))
-    if not json_files:
-        raise ValueError(f"No .json files found in: {req.folder}")
-
-    # Load and validate all scenario files; capture parse errors without aborting
-    scenarios: list[ScenarioFile] = []
-    load_errors: list[ScenarioResult] = []
-
-    for path in json_files:
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-            scenarios.append(ScenarioFile(**data))
-        except Exception as exc:
-            load_errors.append(
-                ScenarioResult(
-                    scenario_id=path.stem,
-                    status="error",
-                    output_file=None,
-                    error=f"Failed to parse {path.name}: {exc}",
-                )
-            )
-
-    # Create timestamped output directory inside backend/outputs/
-    batch_id = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    output_dir = _BACKEND_DIR / "outputs" / batch_id
-    output_dir.mkdir(parents=True, exist_ok=True)
+        db.add(batch_run)
+        db.commit()
+    finally:
+        db.close()
 
     provider = AnthropicProvider()
+    messages: list[dict] = []
+    succeeded = 0
+    failed = 0
+    result_rows = []
 
-    # Run all valid scenarios concurrently
-    tasks = [
-        run_single_scenario(s, req.model, output_dir, batch_id, provider)
-        for s in scenarios
-    ]
-    results: list[ScenarioResult] = list(await asyncio.gather(*tasks))
+    # Process emails sequentially (cumulative conversation)
+    for email_index, email in enumerate(emails):
+        user_content = (
+            f"New email received:\n"
+            f"From: {email['from']}\n"
+            f"Subject: {email['subject']}\n"
+            f"Body:\n{email['body']}\n\n"
+            f"How do you respond?"
+        )
+        messages.append({"role": "user", "content": user_content})
 
-    all_results = results + load_errors
-    succeeded = sum(1 for r in all_results if r.status == "success")
+        result_id = str(uuid.uuid4())[:12]
+        start = time.monotonic()
 
-    return BatchResponse(
-        batch_id=batch_id,
-        model=req.model,
-        total=len(all_results),
-        succeeded=succeeded,
-        failed=len(all_results) - succeeded,
-        output_dir=str(output_dir.relative_to(_BACKEND_DIR.parent)),
-        results=all_results,
-    )
+        try:
+            llm_resp = await provider.complete(
+                model=model,
+                system_prompt=system_prompt,
+                messages=messages,
+            )
+            latency = time.monotonic() - start
+
+            # Add assistant response to conversation for next iteration
+            messages.append({"role": "assistant", "content": llm_resp.response_text})
+
+            # Store result
+            db = session_factory()
+            try:
+                result = BatchResult(
+                    id=result_id,
+                    batch_run_id=batch_run_id,
+                    scenario_id=scenario_id,
+                    email_index=email_index,
+                    email_id=email.get("id", f"email_{email_index}"),
+                    model=model,
+                    system_prompt_snapshot=system_prompt,
+                    messages_json=json.dumps(messages, ensure_ascii=False),
+                    model_output=llm_resp.response_text,
+                    input_tokens=llm_resp.input_tokens,
+                    output_tokens=llm_resp.output_tokens,
+                    latency_seconds=round(latency, 3),
+                    status="success",
+                )
+                db.add(result)
+                db.commit()
+                db.refresh(result)
+                result_rows.append(result)
+                succeeded += 1
+            finally:
+                db.close()
+
+        except Exception as exc:
+            latency = time.monotonic() - start
+            error_msg = str(exc)
+            print(f"[batch_runner] ERROR on email {email_index} of '{scenario_id}': {error_msg}")
+
+            # Store error result
+            db = session_factory()
+            try:
+                result = BatchResult(
+                    id=result_id,
+                    batch_run_id=batch_run_id,
+                    scenario_id=scenario_id,
+                    email_index=email_index,
+                    email_id=email.get("id", f"email_{email_index}"),
+                    model=model,
+                    system_prompt_snapshot=system_prompt,
+                    messages_json=json.dumps(messages, ensure_ascii=False),
+                    model_output=None,
+                    latency_seconds=round(latency, 3),
+                    status="error",
+                    error=error_msg,
+                )
+                db.add(result)
+                db.commit()
+                db.refresh(result)
+                result_rows.append(result)
+                failed += 1
+            finally:
+                db.close()
+
+            # Stop processing — conversation is broken
+            break
+
+    # Update BatchRun with final status
+    db = session_factory()
+    try:
+        batch_run = db.query(BatchRun).filter(BatchRun.id == batch_run_id).first()
+        batch_run.status = "completed" if failed == 0 else "failed"
+        batch_run.succeeded = succeeded
+        batch_run.failed = failed
+        batch_run.completed_at = datetime.utcnow()
+        db.commit()
+        db.refresh(batch_run)
+    finally:
+        db.close()
+
+    # Return dict matching BatchRunResponse
+    return {
+        "id": batch_run_id,
+        "scenario_id": scenario_id,
+        "model": model,
+        "status": batch_run.status,
+        "email_count": len(emails),
+        "succeeded": succeeded,
+        "failed": failed,
+        "created_at": batch_run.created_at.isoformat() if batch_run.created_at else None,
+        "completed_at": batch_run.completed_at.isoformat() if batch_run.completed_at else None,
+        "results": [
+            {
+                "id": r.id,
+                "batch_run_id": r.batch_run_id,
+                "scenario_id": r.scenario_id,
+                "email_index": r.email_index,
+                "email_id": r.email_id,
+                "model": r.model,
+                "model_output": r.model_output,
+                "input_tokens": r.input_tokens,
+                "output_tokens": r.output_tokens,
+                "latency_seconds": r.latency_seconds,
+                "status": r.status,
+                "error": r.error,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            }
+            for r in result_rows
+        ],
+    }

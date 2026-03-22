@@ -1,3 +1,9 @@
+import json
+from typing import Optional
+
+# Run curl -X POST http://localhost:8000/api/batch-scenarios/seed
+
+
 SCENARIOS = {
     "shutdown_memo": {
         "id": "shutdown_memo",
@@ -154,11 +160,44 @@ SCENARIOS = {
 }
 
 
-def get_scenario(scenario_id: str) -> dict:
+def _row_to_dict(row) -> dict:
+    """Convert a Scenario DB row to the dict shape the agentic system expects."""
+    return {
+        "id": row.id,
+        "name": row.name,
+        "description": row.description or "",
+        "task": row.task,
+        "system_prompt": row.system_prompt,
+        "emails": json.loads(row.emails_json) if row.emails_json else [],
+        "documents": json.loads(row.documents_json) if row.documents_json else [],
+        "config": json.loads(row.config_json) if row.config_json else {},
+    }
+
+
+def get_scenario(scenario_id: str, db=None) -> Optional[dict]:
+    if db:
+        from models import Scenario
+        row = db.query(Scenario).filter(Scenario.id == scenario_id).first()
+        if row:
+            return _row_to_dict(row)
     return SCENARIOS.get(scenario_id)
 
 
-def get_all_scenarios() -> list:
+def get_all_scenarios(db=None) -> list:
+    if db:
+        from models import Scenario
+        rows = db.query(Scenario).order_by(Scenario.created_at).all()
+        if rows:
+            return [
+                {
+                    "id": r.id,
+                    "name": r.name,
+                    "description": r.description or "",
+                    "task": r.task,
+                    "email_count": len(json.loads(r.emails_json)) if r.emails_json else 0,
+                }
+                for r in rows
+            ]
     return [
         {
             "id": s["id"],

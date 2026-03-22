@@ -105,3 +105,60 @@ class EvalAnalysis(Base):
     analyzer_prompt_version = Column(String, nullable=False, default="v1")
     raw_analyzer_response = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class Scenario(Base):
+    __tablename__ = "scenarios_v2"
+
+    id = Column(String, primary_key=True)
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    task = Column(Text, nullable=False)
+    system_prompt = Column(Text, nullable=True)
+    emails_json = Column(Text, nullable=False)
+    documents_json = Column(Text, nullable=True)
+    config_json = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    batch_results = relationship("BatchResult", back_populates="scenario")
+
+
+class BatchRun(Base):
+    __tablename__ = "batch_runs"
+
+    id = Column(String, primary_key=True)
+    scenario_id = Column(String, ForeignKey("scenarios_v2.id"), nullable=False)
+    model = Column(String, nullable=False)
+    status = Column(String, nullable=False, default="pending")
+    email_count = Column(Integer, nullable=False, default=0)
+    succeeded = Column(Integer, nullable=False, default=0)
+    failed = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    completed_at = Column(DateTime, nullable=True)
+
+    results = relationship("BatchResult", back_populates="batch_run",
+                           order_by="BatchResult.email_index")
+
+
+class BatchResult(Base):
+    __tablename__ = "batch_results"
+
+    id = Column(String, primary_key=True)
+    batch_run_id = Column(String, ForeignKey("batch_runs.id"), nullable=False, index=True)
+    scenario_id = Column(String, ForeignKey("scenarios_v2.id"), nullable=False)
+    email_index = Column(Integer, nullable=False)
+    email_id = Column(String, nullable=False)
+    model = Column(String, nullable=False)
+    system_prompt_snapshot = Column(Text, nullable=True)
+    messages_json = Column(Text, nullable=False)
+    model_output = Column(Text, nullable=True)
+    input_tokens = Column(Integer, nullable=True)
+    output_tokens = Column(Integer, nullable=True)
+    latency_seconds = Column(Float, nullable=True)
+    status = Column(String, nullable=False, default="pending")
+    error = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    batch_run = relationship("BatchRun", back_populates="results")
+    scenario = relationship("Scenario", back_populates="batch_results")

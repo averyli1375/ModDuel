@@ -13,7 +13,10 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from database import get_db, init_db
-from models import ScenarioRun, AgentAction, RunScore, EvalRecord, EvalAnalysis
+from models import (
+    ScenarioRun, AgentAction, RunScore, EvalRecord, EvalAnalysis,
+    Scenario, BatchRun, BatchResult,
+)
 from scenarios import get_all_scenarios, get_scenario
 
 # Lazy imports - only load when needed
@@ -30,10 +33,6 @@ def _get_eval_services():
     from scorer import grade_eval_file
     from analyzer import analyze_batch, should_auto_analyze
     return grade_eval_file, analyze_batch, should_auto_analyze
-
-def _get_batch_runner():
-    from batch_runner import run_batch, BatchRequest, BatchResponse
-    return run_batch, BatchRequest, BatchResponse
 
 from contextlib import asynccontextmanager
 
@@ -168,7 +167,7 @@ def _run_agent_and_score(run_id: str, scenario_id: str, agent_mode: str, model: 
         # Score the completed run
         run = db.query(ScenarioRun).filter(ScenarioRun.id == run_id).first()
         if run and run.status == "completed":
-            scenario = get_scenario(scenario_id)
+            scenario = get_scenario(scenario_id, db=db)
             score_run(db, run_id, scenario)
     finally:
         db.close()
@@ -184,13 +183,13 @@ def health_check():
 
 
 @app.get("/api/scenarios")
-def list_scenarios():
-    return get_all_scenarios()
+def list_scenarios(db: Session = Depends(get_db)):
+    return get_all_scenarios(db=db)
 
 
 @app.get("/api/scenarios/{scenario_id}")
-def get_scenario_detail(scenario_id: str):
-    scenario = get_scenario(scenario_id)
+def get_scenario_detail(scenario_id: str, db: Session = Depends(get_db)):
+    scenario = get_scenario(scenario_id, db=db)
     if not scenario:
         raise HTTPException(status_code=404, detail="Scenario not found")
     return {
@@ -213,7 +212,7 @@ def start_run(req: StartRunRequest, background_tasks: BackgroundTasks, db: Sessi
     
     # Step 1: Validate scenario
     t1 = time.time()
-    scenario = get_scenario(req.scenario_id)
+    scenario = get_scenario(req.scenario_id, db=db)
     if not scenario:
         raise HTTPException(status_code=400, detail="Invalid scenario_id")
     print(f"[{req.scenario_id}] Step 1 (get_scenario): {time.time() - t1:.3f}s")
@@ -504,15 +503,344 @@ def _loads_or_default(raw: Optional[str], default):
         return default
 
 
-@app.post("/api/batch")
-async def batch_run(req: dict):
-    """Run all scenarios in a folder as single-shot Claude calls. No DB involvement."""
+# --- Scenario CRUD (/api/batch-scenarios) ---
+
+
+class ScenarioCreate(BaseModel):
+    id: Optional[str] = None
+    name: str
+    description: Optional[str] = None
+    task: str
+    system_prompt: Optional[str] = None
+    emails: list = []
+    documents: list = []
+    config: dict = {}
+
+
+class ScenarioUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    task: Optional[str] = None
+    system_prompt: Optional[str] = None
+    emails: Optional[list] = None
+    documents: Optional[list] = None
+    config: Optional[dict] = None
+
+
+class ScenarioResponse(BaseModel):
+    id: str
+    name: str
+    description: Optional[str] = None
+    task: str
+    system_prompt: Optional[str] = None
+    emails: list
+    documents: list
+    config: dict
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+def _serialize_scenario(row: Scenario) -> ScenarioResponse:
+    return ScenarioResponse(
+        id=row.id,
+        name=row.name,
+        description=row.description,
+        task=row.task,
+        system_prompt=row.system_prompt,
+        emails=_loads_or_default(row.emails_json, []),
+        documents=_loads_or_default(row.documents_json, []),
+        config=_loads_or_default(row.config_json, {}),
+        created_at=row.created_at.isoformat() if row.created_at else None,
+        updated_at=row.updated_at.isoformat() if row.updated_at else None,
+    )
+
+
+@app.post("/api/batch-scenarios", response_model=ScenarioResponse)
+def create_scenario(req: ScenarioCreate, db: Session = Depends(get_db)):
+    scenario_id = req.id or str(uuid.uuid4())[:12]
+    existing = db.query(Scenario).filter(Scenario.id == scenario_id).first()
+    if existing:
+        raise HTTPException(status_code=409, detail=f"Scenario '{scenario_id}' already exists")
+
+    row = Scenario(
+        id=scenario_id,
+        name=req.name,
+        description=req.description,
+        task=req.task,
+        system_prompt=req.system_prompt,
+        emails_json=json.dumps(req.emails),
+        documents_json=json.dumps(req.documents),
+        config_json=json.dumps(req.config),
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return _serialize_scenario(row)
+
+
+@app.get("/api/batch-scenarios")
+def list_batch_scenarios(db: Session = Depends(get_db)):
+    rows = db.query(Scenario).order_by(Scenario.created_at).all()
+    return [_serialize_scenario(r) for r in rows]
+
+
+@app.get("/api/batch-scenarios/{scenario_id}", response_model=ScenarioResponse)
+def get_batch_scenario(scenario_id: str, db: Session = Depends(get_db)):
+    row = db.query(Scenario).filter(Scenario.id == scenario_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Scenario not found")
+    return _serialize_scenario(row)
+
+
+@app.put("/api/batch-scenarios/{scenario_id}", response_model=ScenarioResponse)
+def update_scenario(scenario_id: str, req: ScenarioUpdate, db: Session = Depends(get_db)):
+    row = db.query(Scenario).filter(Scenario.id == scenario_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Scenario not found")
+
+    if req.name is not None:
+        row.name = req.name
+    if req.description is not None:
+        row.description = req.description
+    if req.task is not None:
+        row.task = req.task
+    if req.system_prompt is not None:
+        row.system_prompt = req.system_prompt
+    if req.emails is not None:
+        row.emails_json = json.dumps(req.emails)
+    if req.documents is not None:
+        row.documents_json = json.dumps(req.documents)
+    if req.config is not None:
+        row.config_json = json.dumps(req.config)
+
+    row.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(row)
+    return _serialize_scenario(row)
+
+
+@app.delete("/api/batch-scenarios/{scenario_id}")
+def delete_scenario(scenario_id: str, db: Session = Depends(get_db)):
+    row = db.query(Scenario).filter(Scenario.id == scenario_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Scenario not found")
+
+    has_results = db.query(BatchResult).filter(BatchResult.scenario_id == scenario_id).first()
+    if has_results:
+        raise HTTPException(status_code=409, detail="Cannot delete scenario with existing batch results")
+
+    db.delete(row)
+    db.commit()
+    return {"status": "deleted", "id": scenario_id}
+
+
+@app.post("/api/batch-scenarios/seed")
+def seed_scenarios(db: Session = Depends(get_db)):
+    """Migrate hardcoded SCENARIOS dict into the DB. Skips existing IDs."""
+    from scenarios import SCENARIOS
+
+    created = []
+    skipped = []
+    for s in SCENARIOS.values():
+        existing = db.query(Scenario).filter(Scenario.id == s["id"]).first()
+        if existing:
+            skipped.append(s["id"])
+            continue
+        row = Scenario(
+            id=s["id"],
+            name=s["name"],
+            description=s.get("description", ""),
+            task=s["task"],
+            emails_json=json.dumps(s.get("emails", [])),
+            documents_json=json.dumps(s.get("documents", [])),
+            config_json=json.dumps(s.get("config", {})),
+        )
+        db.add(row)
+        created.append(s["id"])
+
+    db.commit()
+    return {"created": created, "skipped": skipped}
+
+
+# --- Batch run endpoints ---
+
+
+class BatchRunRequest(BaseModel):
+    scenario_id: str
+    model: str = "claude-haiku-4-5-20251001"
+
+
+class BatchResultResponse(BaseModel):
+    id: str
+    batch_run_id: str
+    scenario_id: str
+    email_index: int
+    email_id: str
+    model: str
+    model_output: Optional[str] = None
+    input_tokens: Optional[int] = None
+    output_tokens: Optional[int] = None
+    latency_seconds: Optional[float] = None
+    status: str
+    error: Optional[str] = None
+    created_at: Optional[str] = None
+
+
+class BatchRunResponse(BaseModel):
+    id: str
+    scenario_id: str
+    model: str
+    status: str
+    email_count: int
+    succeeded: int
+    failed: int
+    created_at: Optional[str] = None
+    completed_at: Optional[str] = None
+    results: List[BatchResultResponse] = []
+
+
+def _serialize_batch_result(r: BatchResult) -> BatchResultResponse:
+    return BatchResultResponse(
+        id=r.id,
+        batch_run_id=r.batch_run_id,
+        scenario_id=r.scenario_id,
+        email_index=r.email_index,
+        email_id=r.email_id,
+        model=r.model,
+        model_output=r.model_output,
+        input_tokens=r.input_tokens,
+        output_tokens=r.output_tokens,
+        latency_seconds=r.latency_seconds,
+        status=r.status,
+        error=r.error,
+        created_at=r.created_at.isoformat() if r.created_at else None,
+    )
+
+
+def _serialize_batch_run(run: BatchRun, include_results: bool = False) -> BatchRunResponse:
+    return BatchRunResponse(
+        id=run.id,
+        scenario_id=run.scenario_id,
+        model=run.model,
+        status=run.status,
+        email_count=run.email_count,
+        succeeded=run.succeeded,
+        failed=run.failed,
+        created_at=run.created_at.isoformat() if run.created_at else None,
+        completed_at=run.completed_at.isoformat() if run.completed_at else None,
+        results=[_serialize_batch_result(r) for r in run.results] if include_results else [],
+    )
+
+
+@app.post("/api/batch", response_model=BatchRunResponse)
+async def batch_run(req: BatchRunRequest):
+    """Run a scenario's emails cumulatively through the model, storing results in DB."""
     try:
-        run_batch, BatchRequest, _ = _get_batch_runner()
-        parsed_req = BatchRequest(**req)
-        return await run_batch(parsed_req)
+        from batch_runner import run_batch
+        from database import get_session_factory
+        return await run_batch(req.scenario_id, req.model, get_session_factory())
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.get("/api/batch-runs")
+def list_batch_runs(db: Session = Depends(get_db)):
+    runs = db.query(BatchRun).order_by(BatchRun.created_at.desc()).limit(50).all()
+    return [_serialize_batch_run(r) for r in runs]
+
+
+@app.get("/api/batch-runs/{batch_id}", response_model=BatchRunResponse)
+def get_batch_run(batch_id: str, db: Session = Depends(get_db)):
+    run = db.query(BatchRun).filter(BatchRun.id == batch_id).first()
+    if not run:
+        raise HTTPException(status_code=404, detail="Batch run not found")
+    return _serialize_batch_run(run, include_results=True)
+
+
+@app.get("/api/batch-results/{result_id}", response_model=BatchResultResponse)
+def get_batch_result(result_id: str, db: Session = Depends(get_db)):
+    result = db.query(BatchResult).filter(BatchResult.id == result_id).first()
+    if not result:
+        raise HTTPException(status_code=404, detail="Batch result not found")
+    return _serialize_batch_result(result)
+
+
+# --- Grade from DB endpoints ---
+
+
+class GradeResultRequest(BaseModel):
+    batch_result_id: str
+
+
+class GradeBatchRunRequest(BaseModel):
+    batch_run_id: str
+
+
+@app.post("/api/evals/grade-result", response_model=EvalResponse)
+def grade_single_result(req: GradeResultRequest, db: Session = Depends(get_db)):
+    """Grade a single BatchResult by ID."""
+    result = db.query(BatchResult).filter(BatchResult.id == req.batch_result_id).first()
+    if not result:
+        raise HTTPException(status_code=404, detail="Batch result not found")
+    if result.status != "success" or not result.model_output:
+        raise HTTPException(status_code=400, detail="Cannot grade a result with status != success")
+
+    prompt_text = f"[SYSTEM]\n{result.system_prompt_snapshot or ''}\n\n[MESSAGES]\n{result.messages_json}"
+
+    grade_eval_file, analyze_batch, should_auto_analyze = _get_eval_services()
+    payload = {
+        "prompt": prompt_text,
+        "model_output": result.model_output,
+        "model_name": result.model,
+        "source": f"batch:{result.batch_run_id}",
+    }
+    record = grade_eval_file(db, batch_id=result.batch_run_id, payload=payload, source_file=None)
+
+    if should_auto_analyze(db, result.batch_run_id):
+        analyze_batch(db, batch_id=result.batch_run_id, trigger_mode="auto")
+
+    return _serialize_eval(record)
+
+
+@app.post("/api/evals/grade-batch")
+def grade_batch_run(req: GradeBatchRunRequest, db: Session = Depends(get_db)):
+    """Grade all successful results in a BatchRun."""
+    run = db.query(BatchRun).filter(BatchRun.id == req.batch_run_id).first()
+    if not run:
+        raise HTTPException(status_code=404, detail="Batch run not found")
+
+    results = (
+        db.query(BatchResult)
+        .filter(BatchResult.batch_run_id == req.batch_run_id, BatchResult.status == "success")
+        .order_by(BatchResult.email_index)
+        .all()
+    )
+    if not results:
+        raise HTTPException(status_code=400, detail="No successful results to grade")
+
+    grade_eval_file, analyze_batch, should_auto_analyze = _get_eval_services()
+
+    graded = 0
+    errors = 0
+    for result in results:
+        try:
+            prompt_text = f"[SYSTEM]\n{result.system_prompt_snapshot or ''}\n\n[MESSAGES]\n{result.messages_json}"
+            payload = {
+                "prompt": prompt_text,
+                "model_output": result.model_output,
+                "model_name": result.model,
+                "source": f"batch:{result.batch_run_id}",
+            }
+            grade_eval_file(db, batch_id=result.batch_run_id, payload=payload, source_file=None)
+            graded += 1
+        except Exception as e:
+            print(f"[grade-batch] Error grading result {result.id}: {e}")
+            errors += 1
+
+    if should_auto_analyze(db, req.batch_run_id):
+        analyze_batch(db, batch_id=req.batch_run_id, trigger_mode="auto")
+
+    return {"batch_run_id": req.batch_run_id, "graded": graded, "errors": errors}
 
 
 if __name__ == "__main__":
