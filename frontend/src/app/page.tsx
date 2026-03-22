@@ -43,6 +43,7 @@ export default function Home() {
   const [selectedResearchRun, setSelectedResearchRun] = useState<Run | null>(null);
   const [researchStarting, setResearchStarting] = useState(false);
   const [reckoningExperimentFilter, setReckoningExperimentFilter] = useState<string | null>(null);
+  const [showDuelAnimation, setShowDuelAnimation] = useState(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const researchPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -220,6 +221,8 @@ export default function Home() {
   const handleStartRun = async () => {
     if (!selectedScenario || isRunning) return;
     setError(null);
+    setShowDuelAnimation(true);
+    setTimeout(() => setShowDuelAnimation(false), 2500);
 
     try {
       const result = await startRun(selectedScenario, agentMode);
@@ -229,6 +232,7 @@ export default function Home() {
       startPolling(result.run_id);
     } catch (err) {
       setError(`Failed to start run: ${err}`);
+      setShowDuelAnimation(false);
     }
   };
 
@@ -269,6 +273,17 @@ export default function Home() {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden western-scene dust-mote">
+      {/* Duel Animation Overlay */}
+      {showDuelAnimation && (
+        <div className="fixed inset-0 z-[100] pointer-events-none flex items-center justify-center overflow-hidden">
+          <div className="absolute inset-0 bg-black/40 animate-flash-screen" />
+          <div className="text-gold-bright font-[family-name:var(--font-western)] text-9xl animate-draw-text font-black drop-shadow-[0_0_20px_rgba(255,0,0,0.8)]">
+            DRAW!
+          </div>
+          <img src="/tumbleweed.svg" className="absolute bottom-10 left-[-200px] w-48 h-48 animate-tumbleweed opacity-80" alt="tumbleweed overlay" />
+        </div>
+      )}
+
       <div className="town-decor" aria-hidden="true">
         <span className="scene-sky" />
         <span className="scene-road" />
