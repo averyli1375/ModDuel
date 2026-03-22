@@ -76,7 +76,7 @@ export default function Inbox({ emails, readEmails, actions }: InboxProps) {
                 onClick={() => setExpandedEmailId(expandedEmailId === email.id ? null : email.id)}
                 className={`p-3 relative transition-all animate-slide-in paper-texture shadow-md cursor-pointer hover:brightness-95 ${
                   isSuspicious && isRead
-                    ? "border-danger/50 bg-red-100 text-red-950 font-bold"
+                    ? "border-red-800 bg-[#e8cba5] text-red-900 font-bold"
                     : isRead
                       ? "border-wood-medium/30 bg-parchment text-wood-dark"
                       : "border-wood-dark/50 bg-parchment text-black font-bold scale-[1.01]"

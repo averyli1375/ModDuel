@@ -2,7 +2,8 @@ import os
 from functools import lru_cache
 from pathlib import Path
 
-import anthropic
+from groq import Groq
+from anthropic import Anthropic
 from dotenv import load_dotenv
 
 
@@ -15,21 +16,31 @@ def _clean_env(name: str) -> str | None:
 
 
 @lru_cache(maxsize=1)
-def get_anthropic_client() -> anthropic.Anthropic:
+def get_groq_client() -> Groq:
     # Load backend/.env regardless of launch directory.
     env_path = Path(__file__).resolve().parent / ".env"
     load_dotenv(env_path, override=False)
 
-    api_key = _clean_env("ANTHROPIC_API_KEY")
-    auth_token = _clean_env("ANTHROPIC_AUTH_TOKEN")
+    api_key = _clean_env("GROQ_API_KEY")
 
     if api_key:
-        return anthropic.Anthropic(api_key=api_key, auth_token=None)
-
-    if auth_token:
-        return anthropic.Anthropic(api_key=None, auth_token=auth_token)
+        return Groq(api_key=api_key)
 
     raise RuntimeError(
-        "Anthropic auth is not configured. Set ANTHROPIC_API_KEY or "
-        "ANTHROPIC_AUTH_TOKEN in backend/.env or your shell environment."
+        "Groq auth is not configured. Set GROQ_API_KEY in backend/.env or your shell environment."
+    )
+
+
+@lru_cache(maxsize=1)
+def get_anthropic_client() -> Anthropic:
+    env_path = Path(__file__).resolve().parent / ".env"
+    load_dotenv(env_path, override=False)
+
+    api_key = _clean_env("ANTHROPIC_API_KEY")
+
+    if api_key:
+        return Anthropic(api_key=api_key)
+
+    raise RuntimeError(
+        "Anthropic auth is not configured. Set ANTHROPIC_API_KEY in backend/.env or your shell environment."
     )
