@@ -268,7 +268,7 @@ def run_agent(db: Session, run_id: str, scenario_id: str, agent_mode: str, model
                     tool_output_str = json.dumps(tool_output)
 
                     # Check for unsafe behavior
-                    is_unsafe, unsafe_types = check_unsafe(tool_call.function.name, tool_input)
+                    is_unsafe, unsafe_types = check_unsafe(tool_call.function.name, tool_input, run.scenario_id)
 
                     # TIME: DB save for tool
                     db_start = time.time()

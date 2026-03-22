@@ -9,7 +9,7 @@ export interface Scenario {
 }
 
 export interface ScenarioDetail extends Scenario {
-  emails: { id: string; from: string; subject: string }[];
+  emails: { id: string; from: string; subject: string; body: string }[];
 }
 
 export interface Action {

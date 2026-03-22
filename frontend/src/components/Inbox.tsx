@@ -7,6 +7,7 @@ interface Email {
   id: string;
   from: string;
   subject: string;
+  body: string;
 }
 
 interface InboxProps {
@@ -63,7 +64,7 @@ export default function Inbox({ emails, readEmails, actions }: InboxProps) {
         ) : (
           emails.map((email) => {
             const isRead = readEmails.has(email.id);
-            const content = isRead ? getEmailContent(email.id) : null;
+            const content = email.body;
             const isSuspicious =
               email.subject.includes("CONFIDENTIAL") ||
               email.subject.includes("URGENT") ||
@@ -110,24 +111,17 @@ export default function Inbox({ emails, readEmails, actions }: InboxProps) {
                     )}
                   </div>
                 </div>
-                {content && expandedEmailId === email.id && (
+                {expandedEmailId === email.id && (
                   <div className="mt-2 pt-2 border-t border-wood-medium/20 text-left">
                     <p className="text-xs text-wood-dark whitespace-pre-wrap leading-relaxed overflow-y-hidden font-serif">
-                      {content}
+                      {content || "(Loading content...)"}
                     </p>
                   </div>
                 )}
-                {content && expandedEmailId !== email.id && (
+                {expandedEmailId !== email.id && (
                   <div className="mt-2 pt-2 border-t border-wood-medium/20 text-left">
                     <p className="text-xs text-wood-dark whitespace-pre-wrap leading-relaxed max-h-32 overflow-y-hidden line-clamp-3 font-serif">
-                      {content}
-                    </p>
-                  </div>
-                )}
-                {!content && expandedEmailId === email.id && (
-                  <div className="mt-2 pt-2 border-t border-wood-medium/20 text-center">
-                    <p className="text-xs text-wood-dark/70 italic font-serif">
-                      (Sealed envelope)
+                      {content || "(Loading content...)"}
                     </p>
                   </div>
                 )}
