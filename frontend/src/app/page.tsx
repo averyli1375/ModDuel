@@ -100,7 +100,7 @@ export default function Home() {
       } catch (err) {
         console.error("Polling error:", err);
       }
-    }, 2000);
+    }, 1000);
   }, [loadPastRuns, reckoningExperimentFilter]);
 
   // Cleanup polling on unmount
@@ -133,7 +133,7 @@ export default function Home() {
       } catch (err) {
         console.error("Research polling error:", err);
       }
-    }, 2500);
+    }, 1500);
   }, []);
 
   const handleStartResearchExperiment = async () => {
