@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Scenario, ResearchExperiment, Run } from "@/lib/api";
 import ActionLog from "@/components/ActionLog";
 
@@ -32,6 +33,8 @@ export default function ResearchLab({
   onSelectRun,
   onGoToResults,
 }: ResearchLabProps) {
+  const [previewScenario, setPreviewScenario] = useState<Scenario | null>(null);
+
   const totalPlanned = scenarios.reduce((acc, s) => acc + (counts[s.id] || 0), 0);
   const canRun =
     totalPlanned > 0 &&
@@ -54,6 +57,13 @@ export default function ResearchLab({
               <div key={s.id} className="paper-texture border border-wood-light/60 p-2 rounded-sm">
                 <p className="font-[family-name:var(--font-western)] text-sm text-wood-dark">{s.name}</p>
                 <p className="text-xs italic text-wood-dark/70 line-clamp-2">{s.description}</p>
+                <button
+                  type="button"
+                  onClick={() => setPreviewScenario(s)}
+                  className="mt-1 text-[11px] text-wood-dark/80 underline decoration-dotted hover:text-wood-dark"
+                >
+                  View details
+                </button>
                 <div className="mt-2 flex items-center gap-2">
                   <label className="text-[11px] uppercase tracking-wider text-wood-dark/70">Runs</label>
                   <input
@@ -139,7 +149,7 @@ export default function ResearchLab({
               </div>
 
               <div className="flex-1 min-h-0">
-                <ActionLog actions={selectedRun?.actions || []} isRunning={experiment.status === "running"} />
+                <ActionLog actions={selectedRun?.actions || []} isRunning={selectedRun?.status === "running"} />
               </div>
             </div>
           )}
@@ -197,6 +207,47 @@ export default function ResearchLab({
           )}
         </div>
       </div>
+
+      {previewScenario ? (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[1px] flex items-center justify-center p-4"
+          onClick={() => setPreviewScenario(null)}
+        >
+          <div
+            className="wanted-poster w-full max-w-2xl max-h-[85vh] p-4 overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-wood-dark/20 pb-2">
+              <div>
+                <h4 className="font-[family-name:var(--font-western)] text-xl text-wood-dark">
+                  {previewScenario.name}
+                </h4>
+                <p className="text-[11px] uppercase tracking-wider text-wood-dark/60 mt-1">
+                  Scenario ID: {previewScenario.id}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewScenario(null)}
+                className="px-2 py-1 text-xs border border-wood-dark/30 rounded-sm text-wood-dark hover:bg-wood-light/20"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-3 overflow-y-auto pr-1 custom-scrollbar space-y-3">
+              <div>
+                <p className="text-[11px] uppercase tracking-wider text-wood-dark/70">Description</p>
+                <p className="mt-1 text-sm text-wood-dark/90 leading-relaxed">{previewScenario.description}</p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-wider text-wood-dark/70">Task</p>
+                <p className="mt-1 text-sm text-wood-dark/90 leading-relaxed">{previewScenario.task}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

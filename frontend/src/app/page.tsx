@@ -43,6 +43,8 @@ export default function Home() {
   const [selectedResearchRun, setSelectedResearchRun] = useState<Run | null>(null);
   const [researchStarting, setResearchStarting] = useState(false);
   const [reckoningExperimentFilter, setReckoningExperimentFilter] = useState<string | null>(null);
+  const [reckoningBatchRunId, setReckoningBatchRunId] = useState<string | null>(null);
+  const [reckoningBatchRun, setReckoningBatchRun] = useState<Run | null>(null);
   const [showDuelAnimation, setShowDuelAnimation] = useState(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const researchPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -99,7 +101,7 @@ export default function Home() {
         console.error("Polling error:", err);
       }
     }, 2000);
-  }, [loadPastRuns]);
+  }, [loadPastRuns, reckoningExperimentFilter]);
 
   // Cleanup polling on unmount
   useEffect(() => {
@@ -184,11 +186,23 @@ export default function Home() {
   const handleResearchGoToResults = () => {
     if (researchExperiment) {
       setReckoningExperimentFilter(researchExperiment.experiment_id);
+      setReckoningBatchRunId(null);
+      setReckoningBatchRun(null);
       loadPastRuns(researchExperiment.experiment_id);
       setCurrentRun(null);
       setComparisonRun(null);
     }
     setActiveTab("reckoning");
+  };
+
+  const handleOpenBatchRunInReckoning = async (runId: string) => {
+    try {
+      const run = await fetchRun(runId);
+      setReckoningBatchRunId(runId);
+      setReckoningBatchRun(run);
+    } catch (err) {
+      console.error("Failed to fetch batch run:", err);
+    }
   };
 
   const runningResearchRun = researchExperiment
@@ -198,15 +212,41 @@ export default function Home() {
   const etaText = (() => {
     if (!researchExperiment) return null;
     if (researchExperiment.status === "completed") return "Ready";
+    if (researchExperiment.status === "failed") return "Stopped";
     if (!researchExperiment.started_at) return "Waiting to start";
-    const done = researchExperiment.completed_runs + researchExperiment.failed_runs;
-    if (done <= 0) return "Estimating...";
 
-    const startedMs = new Date(researchExperiment.started_at).getTime();
-    const elapsedSec = Math.max(1, Math.floor((Date.now() - startedMs) / 1000));
-    const avgSecPerRun = elapsedSec / done;
-    const remaining = Math.max(0, researchExperiment.total_runs - done);
-    const etaSec = Math.floor(avgSecPerRun * remaining);
+    const done = researchExperiment.completed_runs + researchExperiment.failed_runs;
+    const allRuns = researchExperiment.scenario_groups.flatMap((g) => g.runs);
+    const completedDurations = allRuns
+      .filter((r) => r.started_at && r.completed_at && (r.status === "completed" || r.status === "failed"))
+      .map((r) => {
+        const start = new Date(r.started_at as string).getTime();
+        const end = new Date(r.completed_at as string).getTime();
+        return Math.max(1, Math.floor((end - start) / 1000));
+      });
+
+    if (completedDurations.length === 0 && done <= 0) return "Estimating...";
+
+    const recentDurations = completedDurations.slice(-5);
+    const avgSecPerRun = recentDurations.length
+      ? recentDurations.reduce((sum, s) => sum + s, 0) / recentDurations.length
+      : (() => {
+          const startedMs = new Date(researchExperiment.started_at as string).getTime();
+          const elapsedSec = Math.max(1, Math.floor((Date.now() - startedMs) / 1000));
+          return done > 0 ? elapsedSec / done : 60;
+        })();
+
+    const runningRun = allRuns.find((r) => r.status === "running");
+    const runningElapsedSec = runningRun?.started_at
+      ? Math.max(0, Math.floor((Date.now() - new Date(runningRun.started_at).getTime()) / 1000))
+      : 0;
+
+    const remainingQueued = Math.max(
+      0,
+      researchExperiment.total_runs - done - (runningRun ? 1 : 0)
+    );
+    const currentRunRemaining = runningRun ? Math.max(0, Math.floor(avgSecPerRun - runningElapsedSec)) : 0;
+    const etaSec = Math.floor(currentRunRemaining + remainingQueued * avgSecPerRun);
 
     const minutes = Math.floor(etaSec / 60);
     const seconds = etaSec % 60;
@@ -580,6 +620,8 @@ export default function Home() {
                     <button
                       onClick={() => {
                         setReckoningExperimentFilter(null);
+                        setReckoningBatchRunId(null);
+                        setReckoningBatchRun(null);
                         setCurrentRun(null);
                         loadPastRuns();
                       }}
@@ -590,55 +632,75 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* Aggregated metrics by scenario */}
-                <div className="space-y-4">
-                  {researchExperiment && researchExperiment.scenario_groups.map((group) => {
-                    if (group.completed_runs === 0) return null;
-
-                    // Get runs from this group to calculate averages
-                    // Since we don't have scores readily available, show group stats
-                    return (
-                      <div key={group.scenario_id} className="parchment-card p-6">
-                        <h4 className="font-[family-name:var(--font-western)] text-lg text-gold mb-4">{group.scenario_name}</h4>
-                        <div className="grid grid-cols-2 gap-4 mb-4">
-                          <div className="bg-wood-dark/20 p-4 rounded border border-wood-light/20">
-                            <p className="text-xs text-parchment-dark uppercase tracking-wider mb-1">Total Runs</p>
-                            <p className="text-2xl font-bold text-parchment">{group.total_runs}</p>
-                          </div>
-                          <div className="bg-wood-dark/20 p-4 rounded border border-wood-light/20">
-                            <p className="text-xs text-parchment-dark uppercase tracking-wider mb-1">Completed</p>
-                            <p className="text-2xl font-bold text-safe">{group.completed_runs}</p>
-                          </div>
-                          <div className="bg-wood-dark/20 p-4 rounded border border-wood-light/20">
-                            <p className="text-xs text-parchment-dark uppercase tracking-wider mb-1">Failed</p>
-                            <p className="text-2xl font-bold text-danger">{group.failed_runs}</p>
-                          </div>
-                          <div className="bg-wood-dark/20 p-4 rounded border border-wood-light/20">
-                            <p className="text-xs text-parchment-dark uppercase tracking-wider mb-1">Pending</p>
-                            <p className="text-2xl font-bold text-rust">{group.pending_runs}</p>
-                          </div>
-                        </div>
-                        <details className="bg-wood-dark/10 p-3 rounded border border-wood-light/20">
-                          <summary className="cursor-pointer text-sm text-parchment font-semibold">View Individual Runs from {group.scenario_name}</summary>
-                          <div className="mt-3 space-y-2">
-                            {group.runs.map((run, idx) => (
-                              <button
-                                key={run.run_id}
-                                onClick={() => {
-                                  setReckoningExperimentFilter(null);
-                                  handleSelectResearchRun(run.run_id);
-                                }}
-                                className="w-full text-left px-3 py-2 rounded text-xs border bg-zinc-800/60 border-zinc-700 text-zinc-200 hover:bg-zinc-700/60 transition-colors"
-                              >
-                                Run {run.run_index} - {run.status}
-                              </button>
-                            ))}
-                          </div>
-                        </details>
+                {reckoningBatchRunId && reckoningBatchRun ? (
+                  <div className="space-y-4">
+                    <div className="parchment-card p-4 flex items-center justify-between">
+                      <div>
+                        <h4 className="font-[family-name:var(--font-western)] text-lg text-gold">Batch Run Detail</h4>
+                        <p className="text-xs text-parchment-dark mt-1">
+                          Run ID: {reckoningBatchRun.id} | Status: {reckoningBatchRun.status}
+                        </p>
                       </div>
-                    );
-                  })}
-                </div>
+                      <button
+                        onClick={() => {
+                          setReckoningBatchRunId(null);
+                          setReckoningBatchRun(null);
+                        }}
+                        className="px-4 py-2 rounded border border-wood-light/30 text-parchment hover:bg-wood-light/20 text-sm"
+                      >
+                        Back To Batch Runs
+                      </button>
+                    </div>
+                    <Dashboard
+                      currentRun={reckoningBatchRun}
+                      comparisonRun={null}
+                    />
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {researchExperiment && researchExperiment.scenario_groups.map((group) => {
+                      if (group.completed_runs === 0) return null;
+
+                      return (
+                        <div key={group.scenario_id} className="parchment-card p-6">
+                          <h4 className="font-[family-name:var(--font-western)] text-lg text-gold mb-4">{group.scenario_name}</h4>
+                          <div className="grid grid-cols-2 gap-4 mb-4">
+                            <div className="bg-wood-dark/20 p-4 rounded border border-wood-light/20">
+                              <p className="text-xs text-parchment-dark uppercase tracking-wider mb-1">Total Runs</p>
+                              <p className="text-2xl font-bold text-parchment">{group.total_runs}</p>
+                            </div>
+                            <div className="bg-wood-dark/20 p-4 rounded border border-wood-light/20">
+                              <p className="text-xs text-parchment-dark uppercase tracking-wider mb-1">Completed</p>
+                              <p className="text-2xl font-bold text-safe">{group.completed_runs}</p>
+                            </div>
+                            <div className="bg-wood-dark/20 p-4 rounded border border-wood-light/20">
+                              <p className="text-xs text-parchment-dark uppercase tracking-wider mb-1">Failed</p>
+                              <p className="text-2xl font-bold text-danger">{group.failed_runs}</p>
+                            </div>
+                            <div className="bg-wood-dark/20 p-4 rounded border border-wood-light/20">
+                              <p className="text-xs text-parchment-dark uppercase tracking-wider mb-1">Pending</p>
+                              <p className="text-2xl font-bold text-rust">{group.pending_runs}</p>
+                            </div>
+                          </div>
+                          <details className="bg-wood-dark/10 p-3 rounded border border-wood-light/20">
+                            <summary className="cursor-pointer text-sm text-parchment font-semibold">View Individual Runs from {group.scenario_name}</summary>
+                            <div className="mt-3 space-y-2">
+                              {group.runs.map((run) => (
+                                <button
+                                  key={run.run_id}
+                                  onClick={() => handleOpenBatchRunInReckoning(run.run_id)}
+                                  className="w-full text-left px-3 py-2 rounded text-xs border bg-zinc-800/60 border-zinc-700 text-zinc-200 hover:bg-zinc-700/60 transition-colors"
+                                >
+                                  Run {run.run_index} - {run.status}
+                                </button>
+                              ))}
+                            </div>
+                          </details>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             ) : (
               /* Individual run results */
