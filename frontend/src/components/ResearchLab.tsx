@@ -17,6 +17,8 @@ interface ResearchLabProps {
   selectedRun: Run | null;
   onSelectRun: (runId: string) => void;
   onGoToResults: () => void;
+  selectedModel: string;
+  onModelChange: (model: string) => void;
 }
 
 export default function ResearchLab({
@@ -32,7 +34,15 @@ export default function ResearchLab({
   selectedRun,
   onSelectRun,
   onGoToResults,
+  selectedModel,
+  onModelChange,
 }: ResearchLabProps) {
+  const AVAILABLE_MODELS = [
+    "llama-3.3-70b-versatile",
+    "llama-3.1-8b-instant",
+    "openai/gpt-oss-120b",
+    "qwen/qwen3-32b",
+  ];
   const [previewScenario, setPreviewScenario] = useState<Scenario | null>(null);
 
   const totalPlanned = scenarios.reduce((acc, s) => acc + (counts[s.id] || 0), 0);
@@ -90,11 +100,28 @@ export default function ResearchLab({
             ))}
           </div>
 
-          <div className="mt-3 border-t border-wood-dark/20 pt-3 space-y-2">
+          <div className="mt-3 border-t border-wood-dark/20 pt-3 space-y-3">
             <p className="text-xs text-wood-dark/80">Total planned runs: {totalPlanned}</p>
             <p className="text-[11px] text-wood-dark/80">
               Execution mode: sequential (1 run at a time) to avoid rate limits.
             </p>
+            
+            <div className="space-y-1">
+              <label className="text-[11px] uppercase tracking-wider text-wood-dark/70 block">Model</label>
+              <select
+                value={selectedModel}
+                onChange={(e) => onModelChange(e.target.value)}
+                disabled={experiment?.status === "running"}
+                className="w-full px-2 py-1.5 text-sm border border-wood-dark/30 bg-parchment text-wood-dark rounded-sm"
+              >
+                {AVAILABLE_MODELS.map((model) => (
+                  <option key={model} value={model}>
+                    {model}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
             <button
               onClick={onRunExperiment}
               disabled={!canRun}

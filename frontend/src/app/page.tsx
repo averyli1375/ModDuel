@@ -42,6 +42,7 @@ export default function Home() {
   const [selectedResearchRunId, setSelectedResearchRunId] = useState<string | null>(null);
   const [selectedResearchRun, setSelectedResearchRun] = useState<Run | null>(null);
   const [researchStarting, setResearchStarting] = useState(false);
+  const [researchSelectedModel, setResearchSelectedModel] = useState<string>("llama-3.3-70b-versatile");
   const [reckoningExperimentFilter, setReckoningExperimentFilter] = useState<string | null>(null);
   const [reckoningBatchRunId, setReckoningBatchRunId] = useState<string | null>(null);
   const [reckoningBatchRun, setReckoningBatchRun] = useState<Run | null>(null);
@@ -159,7 +160,7 @@ export default function Home() {
       const exp = await startResearchExperiment({
         name: "The Research Lab",
         agent_mode: agentMode,
-        model: "claude-haiku-4-5-20251001",
+        model: researchSelectedModel,
         max_concurrency: 1,
         scenarios: scenarioPayload,
       });
@@ -599,6 +600,8 @@ export default function Home() {
             selectedRun={selectedResearchRun}
             onSelectRun={handleSelectResearchRun}
             onGoToResults={handleResearchGoToResults}
+            selectedModel={researchSelectedModel}
+            onModelChange={setResearchSelectedModel}
           />
         ) : (
           /* Reckoning (Dashboard) tab */
