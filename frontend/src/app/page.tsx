@@ -174,12 +174,36 @@ export default function Home() {
 
   const handleSelectResearchRun = async (runId: string) => {
     setSelectedResearchRunId(runId);
+
+    const runMeta = researchExperiment?.scenario_groups
+      .flatMap((g) => g.runs)
+      .find((r) => r.run_id === runId);
+
     try {
       const run = await fetchRun(runId);
       setSelectedResearchRun(run);
       setCurrentRun(run);
     } catch (err) {
+      // Pending runs may not yet have a persisted ScenarioRun row; show a stub instead of failing UI.
+      if (runMeta && researchExperiment) {
+        const fallbackRun: Run = {
+          id: runMeta.run_id,
+          scenario_id: runMeta.scenario_id,
+          agent_mode: researchExperiment.agent_mode,
+          model: researchExperiment.model,
+          status: runMeta.status,
+          started_at: runMeta.started_at,
+          completed_at: runMeta.completed_at,
+          actions: [],
+          score: null,
+        };
+        setSelectedResearchRun(fallbackRun);
+        setCurrentRun(fallbackRun);
+        return;
+      }
+
       console.error("Failed to fetch research run:", err);
+      setError("Could not load that run yet. Try again in a moment.");
     }
   };
 
@@ -196,12 +220,34 @@ export default function Home() {
   };
 
   const handleOpenBatchRunInReckoning = async (runId: string) => {
+    const runMeta = researchExperiment?.scenario_groups
+      .flatMap((g) => g.runs)
+      .find((r) => r.run_id === runId);
+
     try {
       const run = await fetchRun(runId);
       setReckoningBatchRunId(runId);
       setReckoningBatchRun(run);
     } catch (err) {
+      if (runMeta && researchExperiment) {
+        const fallbackRun: Run = {
+          id: runMeta.run_id,
+          scenario_id: runMeta.scenario_id,
+          agent_mode: researchExperiment.agent_mode,
+          model: researchExperiment.model,
+          status: runMeta.status,
+          started_at: runMeta.started_at,
+          completed_at: runMeta.completed_at,
+          actions: [],
+          score: null,
+        };
+        setReckoningBatchRunId(runId);
+        setReckoningBatchRun(fallbackRun);
+        return;
+      }
+
       console.error("Failed to fetch batch run:", err);
+      setError("Could not open that run yet. Try again in a moment.");
     }
   };
 
@@ -630,6 +676,32 @@ export default function Home() {
                       View Individual Runs
                     </button>
                   </div>
+
+                  {researchExperiment ? (
+                    <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <div className="bg-wood-dark/20 p-3 rounded border border-wood-light/20">
+                        <p className="text-xs text-parchment-dark uppercase tracking-wider mb-1">Avg Alignment</p>
+                        <p className="text-xl font-bold text-safe">{researchExperiment.summary.avg_alignment_score.toFixed(1)}</p>
+                      </div>
+                      <div className="bg-wood-dark/20 p-3 rounded border border-wood-light/20">
+                        <p className="text-xs text-parchment-dark uppercase tracking-wider mb-1">Avg Task Success</p>
+                        <p className="text-xl font-bold text-parchment">{researchExperiment.summary.avg_task_success.toFixed(1)}%</p>
+                      </div>
+                      <div className="bg-wood-dark/20 p-3 rounded border border-wood-light/20">
+                        <p className="text-xs text-parchment-dark uppercase tracking-wider mb-1">Avg Unsafe Rate</p>
+                        <p className="text-xl font-bold text-danger">{(researchExperiment.summary.avg_unsafe_action_rate * 100).toFixed(1)}%</p>
+                      </div>
+                      <div className="bg-wood-dark/20 p-3 rounded border border-wood-light/20">
+                        <p className="text-xs text-parchment-dark uppercase tracking-wider mb-1">Flags Triggered</p>
+                        <p className="text-xl font-bold text-rust">
+                          {researchExperiment.summary.shutdown_interference_count + researchExperiment.summary.deception_detected_count}
+                        </p>
+                        <p className="text-[11px] text-parchment-dark/80 mt-0.5">
+                          shutdown: {researchExperiment.summary.shutdown_interference_count} | deception: {researchExperiment.summary.deception_detected_count}
+                        </p>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
 
                 {reckoningBatchRunId && reckoningBatchRun ? (
@@ -682,6 +754,31 @@ export default function Home() {
                               <p className="text-2xl font-bold text-rust">{group.pending_runs}</p>
                             </div>
                           </div>
+
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                            <div className="bg-wood-dark/20 p-3 rounded border border-wood-light/20">
+                              <p className="text-xs text-parchment-dark uppercase tracking-wider mb-1">Avg Alignment</p>
+                              <p className="text-lg font-bold text-safe">{group.summary.avg_alignment_score.toFixed(1)}</p>
+                            </div>
+                            <div className="bg-wood-dark/20 p-3 rounded border border-wood-light/20">
+                              <p className="text-xs text-parchment-dark uppercase tracking-wider mb-1">Avg Unsafe Rate</p>
+                              <p className="text-lg font-bold text-danger">{(group.summary.avg_unsafe_action_rate * 100).toFixed(1)}%</p>
+                            </div>
+                            <div className="bg-wood-dark/20 p-3 rounded border border-wood-light/20">
+                              <p className="text-xs text-parchment-dark uppercase tracking-wider mb-1">Unsafe Actions</p>
+                              <p className="text-lg font-bold text-parchment">{group.summary.total_unsafe_actions}</p>
+                            </div>
+                            <div className="bg-wood-dark/20 p-3 rounded border border-wood-light/20">
+                              <p className="text-xs text-parchment-dark uppercase tracking-wider mb-1">Flagged Runs</p>
+                              <p className="text-lg font-bold text-rust">
+                                {group.summary.shutdown_interference_count + group.summary.deception_detected_count}
+                              </p>
+                              <p className="text-[11px] text-parchment-dark/80 mt-0.5">
+                                scored: {group.summary.scored_runs}
+                              </p>
+                            </div>
+                          </div>
+
                           <details className="bg-wood-dark/10 p-3 rounded border border-wood-light/20">
                             <summary className="cursor-pointer text-sm text-parchment font-semibold">View Individual Runs from {group.scenario_name}</summary>
                             <div className="mt-3 space-y-2">
