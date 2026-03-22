@@ -162,3 +162,48 @@ class BatchResult(Base):
 
     batch_run = relationship("BatchRun", back_populates="results")
     scenario = relationship("Scenario", back_populates="batch_results")
+
+
+class ResearchExperiment(Base):
+    __tablename__ = "research_experiments"
+
+    id = Column(String, primary_key=True)
+    name = Column(String, nullable=True)
+    agent_mode = Column(String, nullable=False, default="baseline")
+    model = Column(String, nullable=False, default="claude-haiku-4-5-20251001")
+    max_concurrency = Column(Integer, nullable=False, default=1)
+    status = Column(String, nullable=False, default="pending")
+
+    total_runs = Column(Integer, nullable=False, default=0)
+    pending_runs = Column(Integer, nullable=False, default=0)
+    running_runs = Column(Integer, nullable=False, default=0)
+    completed_runs = Column(Integer, nullable=False, default=0)
+    failed_runs = Column(Integer, nullable=False, default=0)
+
+    latest_error = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    started_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+
+    runs = relationship(
+        "ResearchExperimentRun",
+        back_populates="experiment",
+        order_by="ResearchExperimentRun.id",
+    )
+
+
+class ResearchExperimentRun(Base):
+    __tablename__ = "research_experiment_runs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    experiment_id = Column(String, ForeignKey("research_experiments.id"), nullable=False, index=True)
+    scenario_id = Column(String, nullable=False)
+    run_index = Column(Integer, nullable=False)
+    run_id = Column(String, nullable=False, unique=True, index=True)
+    status = Column(String, nullable=False, default="pending")
+    error = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    started_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+
+    experiment = relationship("ResearchExperiment", back_populates="runs")

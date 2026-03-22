@@ -5,19 +5,23 @@ import {
   Scenario,
   ScenarioDetail,
   Run,
+  ResearchExperiment,
   fetchScenarios,
   fetchScenarioDetail,
   startRun,
   fetchRun,
   fetchRuns,
   RunSummary,
+  startResearchExperiment,
+  fetchResearchExperiment,
 } from "@/lib/api";
 import Inbox from "@/components/Inbox";
 import TaskBoard from "@/components/TaskBoard";
 import ActionLog from "@/components/ActionLog";
 import Dashboard from "@/components/Dashboard";
+import ResearchLab from "@/components/ResearchLab";
 
-type Tab = "arena" | "reckoning";
+type Tab = "arena" | "research_lab" | "reckoning";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<Tab>("arena");
@@ -31,7 +35,16 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [pastRuns, setPastRuns] = useState<RunSummary[]>([]);
   const [selectedComparison, setSelectedComparison] = useState<string>("");
+  const [showResultsPopup, setShowResultsPopup] = useState(true);
+  const [showResultsButton, setShowResultsButton] = useState(false);
+  const [researchCounts, setResearchCounts] = useState<Record<string, number>>({});
+  const [researchExperiment, setResearchExperiment] = useState<ResearchExperiment | null>(null);
+  const [selectedResearchRunId, setSelectedResearchRunId] = useState<string | null>(null);
+  const [selectedResearchRun, setSelectedResearchRun] = useState<Run | null>(null);
+  const [researchStarting, setResearchStarting] = useState(false);
+  const [reckoningExperimentFilter, setReckoningExperimentFilter] = useState<string | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const researchPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Fetch scenarios on mount
   useEffect(() => {
@@ -39,6 +52,11 @@ export default function Home() {
       .then((data) => {
         setScenarios(data);
         if (data.length > 0) setSelectedScenario(data[0].id);
+        const initialCounts: Record<string, number> = {};
+        data.forEach((s) => {
+          initialCounts[s.id] = 0;
+        });
+        setResearchCounts(initialCounts);
       })
       .catch(() => setError("Failed to connect to backend. Is the server running?"));
   }, []);
@@ -46,17 +64,18 @@ export default function Home() {
   // Fetch scenario detail when selection changes
   useEffect(() => {
     if (!selectedScenario) return;
+    setShowResultsButton(false);
     fetchScenarioDetail(selectedScenario).then(setScenarioDetail).catch(console.error);
   }, [selectedScenario]);
 
   // Fetch past runs
-  const loadPastRuns = useCallback(() => {
-    fetchRuns().then(setPastRuns).catch(console.error);
+  const loadPastRuns = useCallback((experimentId?: string) => {
+    fetchRuns(experimentId).then(setPastRuns).catch(console.error);
   }, []);
 
   useEffect(() => {
-    loadPastRuns();
-  }, [loadPastRuns]);
+    loadPastRuns(reckoningExperimentFilter || undefined);
+  }, [loadPastRuns, reckoningExperimentFilter]);
 
   // Polling for run updates
   const startPolling = useCallback((runId: string) => {
@@ -72,7 +91,8 @@ export default function Home() {
           if (pollingRef.current) clearInterval(pollingRef.current);
           pollingRef.current = null;
           setIsRunning(false);
-          loadPastRuns();
+          setShowResultsButton(true);
+          loadPastRuns(reckoningExperimentFilter || undefined);
         }
       } catch (err) {
         console.error("Polling error:", err);
@@ -84,8 +104,118 @@ export default function Home() {
   useEffect(() => {
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
+      if (researchPollingRef.current) clearInterval(researchPollingRef.current);
     };
   }, []);
+
+  const handleResearchCountChange = (scenarioId: string, count: number) => {
+    setResearchCounts((prev) => ({
+      ...prev,
+      [scenarioId]: Math.max(0, Number.isFinite(count) ? count : 0),
+    }));
+  };
+
+  const startResearchPolling = useCallback((experimentId: string) => {
+    if (researchPollingRef.current) clearInterval(researchPollingRef.current);
+
+    researchPollingRef.current = setInterval(async () => {
+      try {
+        const exp = await fetchResearchExperiment(experimentId);
+        setResearchExperiment(exp);
+
+        if (exp.status === "completed" || exp.status === "failed") {
+          if (researchPollingRef.current) clearInterval(researchPollingRef.current);
+          researchPollingRef.current = null;
+        }
+      } catch (err) {
+        console.error("Research polling error:", err);
+      }
+    }, 2500);
+  }, []);
+
+  const handleStartResearchExperiment = async () => {
+    if (researchStarting || (researchExperiment && researchExperiment.status === "running")) {
+      return;
+    }
+
+    const scenarioPayload = Object.entries(researchCounts)
+      .map(([scenario_id, run_count]) => ({ scenario_id, run_count }))
+      .filter((s) => s.run_count > 0);
+
+    if (scenarioPayload.length === 0) {
+      setError("Set at least one scenario run count above 0 to start The Research Lab experiment.");
+      return;
+    }
+
+    setError(null);
+    setResearchStarting(true);
+    setSelectedResearchRunId(null);
+    setSelectedResearchRun(null);
+
+    try {
+      const exp = await startResearchExperiment({
+        name: "The Research Lab",
+        agent_mode: agentMode,
+        model: "claude-haiku-4-5-20251001",
+        max_concurrency: 1,
+        scenarios: scenarioPayload,
+      });
+      setResearchExperiment(exp);
+      startResearchPolling(exp.experiment_id);
+    } catch (err) {
+      setError(`Failed to start research experiment: ${err}`);
+    } finally {
+      setResearchStarting(false);
+    }
+  };
+
+  const handleSelectResearchRun = async (runId: string) => {
+    setSelectedResearchRunId(runId);
+    try {
+      const run = await fetchRun(runId);
+      setSelectedResearchRun(run);
+      setCurrentRun(run);
+    } catch (err) {
+      console.error("Failed to fetch research run:", err);
+    }
+  };
+
+  const handleResearchGoToResults = () => {
+    if (researchExperiment) {
+      setReckoningExperimentFilter(researchExperiment.experiment_id);
+      loadPastRuns(researchExperiment.experiment_id);
+      const firstCompletedRun = researchExperiment.scenario_groups
+        .flatMap((g) => g.runs)
+        .find((r) => r.status === "completed");
+      if (firstCompletedRun) {
+        handleLoadComparison("");
+        handleSelectResearchRun(firstCompletedRun.run_id);
+      }
+    }
+    setActiveTab("reckoning");
+  };
+
+  const runningResearchRun = researchExperiment
+    ? researchExperiment.scenario_groups.flatMap((g) => g.runs).find((r) => r.status === "running")
+    : null;
+
+  const etaText = (() => {
+    if (!researchExperiment) return null;
+    if (researchExperiment.status === "completed") return "Ready";
+    if (!researchExperiment.started_at) return "Waiting to start";
+    const done = researchExperiment.completed_runs + researchExperiment.failed_runs;
+    if (done <= 0) return "Estimating...";
+
+    const startedMs = new Date(researchExperiment.started_at).getTime();
+    const elapsedSec = Math.max(1, Math.floor((Date.now() - startedMs) / 1000));
+    const avgSecPerRun = elapsedSec / done;
+    const remaining = Math.max(0, researchExperiment.total_runs - done);
+    const etaSec = Math.floor(avgSecPerRun * remaining);
+
+    const minutes = Math.floor(etaSec / 60);
+    const seconds = etaSec % 60;
+    return `${minutes}m ${seconds}s`;
+  })();
 
   const handleStartRun = async () => {
     if (!selectedScenario || isRunning) return;
@@ -94,13 +224,20 @@ export default function Home() {
     try {
       const result = await startRun(selectedScenario, agentMode);
       setIsRunning(true);
-      setCurrentRun(null);
       setComparisonRun(null);
+      setShowResultsPopup(true);
       startPolling(result.run_id);
     } catch (err) {
       setError(`Failed to start run: ${err}`);
     }
   };
+
+  const handleViewResults = () => {
+    setActiveTab("reckoning");
+    setShowResultsButton(false);
+  };
+
+  const isResultsReady = showResultsButton && !isRunning && currentRun?.status === "completed" && currentRun?.score;
 
   const handleLoadComparison = async (runId: string) => {
     if (!runId) {
@@ -177,6 +314,16 @@ export default function Home() {
               <span className="font-[family-name:var(--font-western)] text-xl">The Arena</span>
             </button>
             <button
+              onClick={() => setActiveTab("research_lab")}
+              className={`wood-board px-6 py-2 shadow-md transition-all border-2 border-wood-darker transform hover:-translate-y-1 ${
+                activeTab === "research_lab"
+                  ? "bg-amber-100 text-wood-dark"
+                  : "bg-wood-medium opacity-80 text-wood-dark hover:opacity-100"
+              }`}
+            >
+              <span className="font-[family-name:var(--font-western)] text-xl">The Research Lab</span>
+            </button>
+            <button
               onClick={() => setActiveTab("reckoning")}
               className={`wood-board px-6 py-2 shadow-md transition-all border-2 border-wood-darker transform hover:-translate-y-1 ${
                 activeTab === "reckoning"
@@ -204,7 +351,7 @@ export default function Home() {
       )}
 
       {/* Main content */}
-      <main className={`flex-1 max-w-[1600px] mx-auto w-full p-4 relative z-10 ${activeTab === "arena" ? "overflow-hidden" : "overflow-y-auto"}`}>
+      <main className={`flex-1 max-w-[1600px] mx-auto w-full p-4 relative z-10 ${activeTab === "reckoning" ? "overflow-y-auto" : "overflow-hidden"}`}>
         {activeTab === "arena" ? (
           <div className="flex gap-4 h-full min-h-0">
             {/* Left sidebar: Scenario selector */}
@@ -309,12 +456,14 @@ export default function Home() {
 
               {/* Run button */}
               <button
-                onClick={handleStartRun}
-                disabled={isRunning || !selectedScenario}
+                onClick={isResultsReady ? handleViewResults : handleStartRun}
+                disabled={isRunning || (!selectedScenario && !isResultsReady)}
                 className={`w-full py-4 min-h-[4.5rem] shrink-0 flex items-center justify-center relative group transition-all active:scale-95 overflow-hidden rounded-sm ${
                   isRunning
                     ? "wood-panel border-2 border-wood-darker text-wood-light/50 cursor-not-allowed"
-                    : "wood-board border-2 border-gold text-gold-bright shadow-[0_0_15px_rgba(212,160,23,0.15)] hover:shadow-[0_0_25px_rgba(212,160,23,0.4)] hover:brightness-110 cursor-pointer"
+                    : isResultsReady
+                      ? "wood-board border-2 border-safe text-safe shadow-[0_0_15px_rgba(34,197,94,0.15)] hover:shadow-[0_0_25px_rgba(34,197,94,0.4)] hover:brightness-110 cursor-pointer"
+                      : "wood-board border-2 border-gold text-gold-bright shadow-[0_0_15px_rgba(212,160,23,0.15)] hover:shadow-[0_0_25px_rgba(212,160,23,0.4)] hover:brightness-110 cursor-pointer"
                 }`}
                 style={{ 
                   textShadow: '2px 2px 4px rgba(0,0,0,0.9)',
@@ -328,7 +477,14 @@ export default function Home() {
 
                 <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent pointer-events-none transition-opacity group-hover:opacity-50" />
                 <span className="relative z-10 font-[family-name:var(--font-western)] text-xl uppercase tracking-wider flex items-center justify-center gap-2 w-full pb-1 whitespace-nowrap">
-                  {isRunning ? "SADDLING..." : (
+                  {isRunning ? "SADDLING..." : isResultsReady ? (
+                    <>
+                      <span>View Results</span>
+                      <span className="text-lg">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-arrow-right"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                      </span>
+                    </>
+                  ) : (
                     <>
                       <span className="text-lg">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-swords"><polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5"/><line x1="13" y1="19" x2="19" y2="13"/><line x1="16" y1="16" x2="20" y2="20"/><line x1="19" y1="21" x2="21" y2="19"/><polyline points="14.5 6.5 18 3 21 3 21 6 17.5 9.5"/><line x1="5" y1="14" x2="9" y2="18"/><line x1="7" y1="17" x2="4" y2="20"/><line x1="3" y1="19" x2="5" y2="21"/></svg>
@@ -379,6 +535,21 @@ export default function Home() {
               </div>
             </div>
           </div>
+        ) : activeTab === "research_lab" ? (
+          <ResearchLab
+            scenarios={scenarios}
+            counts={researchCounts}
+            onCountChange={handleResearchCountChange}
+            onRunExperiment={handleStartResearchExperiment}
+            isStarting={researchStarting}
+            experiment={researchExperiment}
+            etaText={etaText}
+            activeRunLabel={runningResearchRun ? `${runningResearchRun.scenario_name} / Run ${runningResearchRun.run_index}` : null}
+            selectedRunId={selectedResearchRunId}
+            selectedRun={selectedResearchRun}
+            onSelectRun={handleSelectResearchRun}
+            onGoToResults={handleResearchGoToResults}
+          />
         ) : (
           /* Reckoning (Dashboard) tab */
           <div className="max-w-5xl mx-auto">
@@ -388,6 +559,22 @@ export default function Home() {
                 <h3 className="font-[family-name:var(--font-serif)] text-gold text-sm uppercase tracking-wider">
                   Duel ledger comparison:
                 </h3>
+                {reckoningExperimentFilter ? (
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="px-2 py-1 rounded bg-safe/20 border border-safe/40 text-safe">
+                      Filtered: {reckoningExperimentFilter}
+                    </span>
+                    <button
+                      onClick={() => {
+                        setReckoningExperimentFilter(null);
+                        loadPastRuns();
+                      }}
+                      className="px-2 py-1 rounded border border-wood-light/30 text-parchment hover:bg-wood-light/20"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                ) : null}
                 <select
                   value={selectedComparison}
                   onChange={(e) => {
@@ -423,6 +610,52 @@ export default function Home() {
       <footer className="border-t border-wood-light/20 py-3 text-center text-xs text-parchment-dark rope-divider relative z-10">
         ModDuel | HooHacks 2026
       </footer>
+
+      {/* Results Ready Popup */}
+      {isResultsReady && activeTab === "arena" && showResultsPopup && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] backdrop-blur-sm animate-fade-in">
+          <div className="wanted-poster border-4 border-double border-gold p-8 shadow-2xl max-w-md animate-bounce-in relative" style={{
+            boxShadow: '0_0_40px_rgba(212,160,23,0.5), inset 0_0_20px_rgba(0,0,0,0.3)'
+          }}>
+            <div className="absolute top-3 left-3 w-3 h-3 rounded-full bg-wood-darker shadow-inner" />
+            <div className="absolute top-3 right-3 w-3 h-3 rounded-full bg-wood-darker shadow-inner" />
+            <div className="absolute bottom-3 left-3 w-3 h-3 rounded-full bg-wood-darker shadow-inner" />
+            <div className="absolute bottom-3 right-3 w-3 h-3 rounded-full bg-wood-darker shadow-inner" />
+            
+            <div className="text-center space-y-6">
+              <div>
+                <h3 className="font-[family-name:var(--font-western)] text-wood-dark text-2xl mb-2 tracking-widest drop-shadow-sm">
+                  DUEL COMPLETE
+                </h3>
+                <p className="text-wood-dark/80 font-serif italic">
+                  Your results be ready, partner.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <button
+                  onClick={() => {
+                    setShowResultsPopup(false);
+                    handleViewResults();
+                  }}
+                  className="w-full px-6 py-3 bg-safe text-white font-bold uppercase rounded-sm border-2 border-safe shadow-lg hover:shadow-xl hover:brightness-110 transition-all active:scale-95 font-[family-name:var(--font-western)] tracking-wider flex items-center justify-center gap-2"
+                >
+                  <span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  </span>
+                  View Results
+                </button>
+                <button
+                  onClick={() => setShowResultsPopup(false)}
+                  className="w-full px-6 py-2 bg-wood-medium text-parchment font-bold uppercase rounded-sm border border-wood-light/30 hover:bg-wood-light/20 transition-all font-[family-name:var(--font-western)] tracking-wider"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
