@@ -339,11 +339,11 @@ body::after {
   background: var(--wood-dark);
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--wood-light);
+  background: var(--rust);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--gold);
+  background: var(--rust-dark);
 }
 
 /* Sheriff badge spin */

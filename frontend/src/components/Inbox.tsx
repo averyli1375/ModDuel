@@ -55,7 +55,7 @@ export default function Inbox({ emails, readEmails, actions }: InboxProps) {
             <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
           </span>
         </h2>
-        <div className="flex-1 overflow-y-auto space-y-3 px-1 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden space-y-3 px-1 custom-scrollbar w-full">
         {emails.length === 0 ? (
           <p className="text-parchment-dark text-sm italic">
             No dispatches in the inbox...
@@ -74,13 +74,13 @@ export default function Inbox({ emails, readEmails, actions }: InboxProps) {
               <div
                 key={email.id}
                 onClick={() => setExpandedEmailId(expandedEmailId === email.id ? null : email.id)}
-                className={`p-3 relative transition-all animate-slide-in paper-texture shadow-md cursor-pointer hover:brightness-95 ${
+                className={`p-3 relative transition-all animate-slide-in paper-texture shadow-md cursor-pointer hover:brightness-95 w-full ${
                   isSuspicious && isRead
                     ? "border-red-800 bg-[#e8cba5] text-red-900 font-bold"
                     : isRead
                       ? "border-wood-medium/30 bg-parchment text-wood-dark"
-                      : "border-wood-dark/50 bg-parchment text-black font-bold scale-[1.01]"
-                } ${isSuspicious ? 'skew-y-1 z-10' : '-skew-y-1 z-0'} ${expandedEmailId === email.id ? '!skew-y-0 scale-[1.02] shadow-lg z-20' : ''}`}
+                      : "border-wood-dark/50 bg-parchment text-black font-bold"
+                } ${isSuspicious ? 'skew-y-1 z-10' : '-skew-y-1 z-0'} ${expandedEmailId === email.id ? '!skew-y-0 shadow-lg z-20' : ''}`}
               >
                 {/* Pin graphic */}
                 <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-zinc-400 shadow-md border border-zinc-600 z-10" />
@@ -110,9 +110,16 @@ export default function Inbox({ emails, readEmails, actions }: InboxProps) {
                     )}
                   </div>
                 </div>
-                {content && (
+                {content && expandedEmailId === email.id && (
                   <div className="mt-2 pt-2 border-t border-wood-medium/20 text-left">
-                    <p className="text-xs text-wood-dark whitespace-pre-wrap leading-relaxed max-h-32 overflow-y-auto font-serif">
+                    <p className="text-xs text-wood-dark whitespace-pre-wrap leading-relaxed overflow-y-hidden font-serif">
+                      {content}
+                    </p>
+                  </div>
+                )}
+                {content && expandedEmailId !== email.id && (
+                  <div className="mt-2 pt-2 border-t border-wood-medium/20 text-left">
+                    <p className="text-xs text-wood-dark whitespace-pre-wrap leading-relaxed max-h-32 overflow-y-hidden line-clamp-3 font-serif">
                       {content}
                     </p>
                   </div>
