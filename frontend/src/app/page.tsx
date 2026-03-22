@@ -39,7 +39,6 @@ export default function Home() {
   const [showResultsButton, setShowResultsButton] = useState(false);
   const [researchCounts, setResearchCounts] = useState<Record<string, number>>({});
   const [researchExperiment, setResearchExperiment] = useState<ResearchExperiment | null>(null);
-  const [researchConcurrency, setResearchConcurrency] = useState(1);
   const [selectedResearchRunId, setSelectedResearchRunId] = useState<string | null>(null);
   const [selectedResearchRun, setSelectedResearchRun] = useState<Run | null>(null);
   const [researchStarting, setResearchStarting] = useState(false);
@@ -158,7 +157,7 @@ export default function Home() {
         name: "The Research Lab",
         agent_mode: agentMode,
         model: "claude-haiku-4-5-20251001",
-        max_concurrency: Math.max(1, researchConcurrency),
+        max_concurrency: 1,
         scenarios: scenarioPayload,
       });
       setResearchExperiment(exp);
@@ -268,8 +267,9 @@ export default function Home() {
       <div className="town-decor" aria-hidden="true">
         <span className="scene-sky" />
         <span className="scene-road" />
-        <span className="scene-left-town" />
-        <span className="scene-right-town" />
+        <span className="scene-general-store" />
+        <span className="scene-blacksmith" />
+        <span className="scene-saloon" />
         <span className="scene-wagon wagon-one" />
         <span className="tumbleweed tumbleweed-one" />
         <span className="tumbleweed tumbleweed-two" />
@@ -288,7 +288,7 @@ export default function Home() {
               <div className="absolute bottom-1 left-1 w-1.5 h-1.5 rounded-full bg-zinc-800 shadow-inner" />
               <div className="absolute bottom-1 right-1 w-1.5 h-1.5 rounded-full bg-zinc-800 shadow-inner" />
               <h1 className="font-[family-name:var(--font-western)] text-wood-dark text-4xl leading-none drop-shadow-sm">
-                MODDUEL
+                ModDuel
               </h1>
               <p className="text-[10px] text-wood-dark font-bold uppercase tracking-[0.2em] relative z-10">
                 Red-Teaming for Frontier Models
@@ -379,9 +379,6 @@ export default function Home() {
                         <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-zinc-400 shadow-md border border-zinc-600 z-10" />
                         <p className="text-md font-bold text-wood-dark mt-1 font-[family-name:var(--font-western)] text-center">
                           {s.name}
-                        </p>
-                        <p className="text-xs text-wood-dark mt-1 line-clamp-2 italic font-serif text-center">
-                          {s.description}
                         </p>
                       </button>
                   ))}
@@ -539,8 +536,6 @@ export default function Home() {
             counts={researchCounts}
             onCountChange={handleResearchCountChange}
             onRunExperiment={handleStartResearchExperiment}
-            concurrency={researchConcurrency}
-            onConcurrencyChange={(value) => setResearchConcurrency(Math.max(1, Math.min(8, value || 1)))}
             isStarting={researchStarting}
             experiment={researchExperiment}
             etaText={etaText}
@@ -673,7 +668,7 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="border-t border-wood-light/20 py-3 text-center text-xs text-parchment-dark rope-divider relative z-10">
-        ModDuel Arena | Frontier Alignment Office | HooHacks 2026
+        ModDuel | HooHacks 2026
       </footer>
 
       {/* Results Ready Popup */}

@@ -230,8 +230,9 @@ body::after {
 
 .scene-sky,
 .scene-road,
-.scene-left-town,
-.scene-right-town,
+.scene-general-store,
+.scene-blacksmith,
+.scene-saloon,
 .scene-wagon,
 .tumbleweed {
   position: absolute;
@@ -239,7 +240,7 @@ body::after {
 
 .scene-sky {
   inset: 0;
-  background: url('/wildwest/sky-mountains.svg') center top / cover no-repeat;
+  background: url('/sky-mountains.svg') center top / cover no-repeat;
   opacity: 0.72;
 }
 
@@ -253,22 +254,33 @@ body::after {
   opacity: 0.9;
 }
 
-.scene-left-town {
+.scene-general-store {
   left: 0;
   bottom: 0;
   width: min(40vw, 550px);
   height: min(48vh, 480px);
-  background: url('/wildwest/town-left.svg') left bottom / contain no-repeat;
+  background: url('/general-store.svg') left bottom / contain no-repeat;
   opacity: 1;
   filter: drop-shadow(8px 12px 14px rgba(18, 10, 6, 0.45));
 }
 
-.scene-right-town {
+.scene-blacksmith {
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 0px;
+  width: min(45vw, 650px);
+  height: min(55vh, 550px);
+  background: url('/blacksmith.svg') center bottom / contain no-repeat;
+  opacity: 0.95;
+  filter: drop-shadow(0px 12px 14px rgba(18, 10, 6, 0.45));
+}
+
+.scene-saloon {
   right: 0;
   bottom: 0;
   width: min(40vw, 550px);
   height: min(48vh, 480px);
-  background: url('/wildwest/town-right.svg') right bottom / contain no-repeat;
+  background: url('/saloon.svg') right bottom / contain no-repeat;
   opacity: 1;
   filter: drop-shadow(-8px 12px 14px rgba(18, 10, 6, 0.45));
 }
@@ -276,8 +288,8 @@ body::after {
 .scene-wagon {
   width: 250px;
   height: 180px;
-  bottom: 4vh;
-  background: url('/wildwest/wagon.svg') center / contain no-repeat;
+  bottom: -1vh;
+  background: url('/wagon.svg') center bottom / contain no-repeat;
   opacity: 0.95;
   filter: drop-shadow(6px 10px 8px rgba(18, 10, 6, 0.5));
 }
@@ -288,28 +300,23 @@ body::after {
 }
 
 .tumbleweed {
-  bottom: 8vh;
-  width: 22px;
-  height: 22px;
-  border: 2px solid rgba(118, 79, 45, 0.65);
-  border-radius: 50%;
-  box-shadow:
-    inset 0 0 0 2px rgba(177, 122, 75, 0.28),
-    -4px 2px 0 -2px rgba(105, 66, 39, 0.42),
-    4px -2px 0 -2px rgba(105, 66, 39, 0.42);
-  animation: rollweed 18s linear infinite;
+  bottom: -2vh;
+  width: 90px;
+  height: 90px;
+  background: url('/tumbleweed.svg') center / contain no-repeat;
+  opacity: 0;
+  filter: drop-shadow(4px 6px 4px rgba(18, 10, 6, 0.45));
 }
 
 .tumbleweed-one {
-  left: 44%;
-  animation-duration: 15s;
-  opacity: 0.64;
+  left: 0%;
+  animation: rollweed 25s linear infinite;
 }
 
 .tumbleweed-two {
-  left: 57%;
-  animation-duration: 20s;
-  opacity: 0.52;
+  left: 0%;
+  animation: rollweed 32s linear infinite;
+  animation-delay: 15s;
 }
 
 /* Unsafe action flash */
@@ -396,11 +403,19 @@ body::after {
 }
 
 @keyframes rollweed {
-  from {
-    transform: translateX(-2vw) rotate(0deg);
+  0% {
+    transform: translateX(-15vw) rotate(0deg);
+    opacity: 0;
   }
-  to {
-    transform: translateX(7vw) rotate(360deg);
+  10% {
+    opacity: 0.85;
+  }
+  90% {
+    opacity: 0.85;
+  }
+  100% {
+    transform: translateX(115vw) rotate(2160deg);
+    opacity: 0;
   }
 }
 
@@ -446,8 +461,9 @@ body::after {
     opacity: 0.34;
   }
 
-  .scene-left-town,
-  .scene-right-town {
+  .scene-general-store,
+  .scene-blacksmith,
+  .scene-saloon {
     width: 32vw;
     height: 30vh;
     opacity: 0.75;
