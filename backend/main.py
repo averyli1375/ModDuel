@@ -210,6 +210,7 @@ class ResearchExperimentResponse(BaseModel):
 
 def _run_agent_and_score(run_id: str, scenario_id: str, agent_mode: str, model: str):
     """Run the agent in a background thread, then score the run."""
+    import time
     from database import get_session_factory
 
     session_factory = get_session_factory()
@@ -218,13 +219,19 @@ def _run_agent_and_score(run_id: str, scenario_id: str, agent_mode: str, model: 
         run_agent = _get_agents()
         score_run = _get_scorer()
         
+        agent_start = time.time()
         run_agent(db, run_id, scenario_id, agent_mode, model)
+        agent_time = time.time() - agent_start
+        print(f"[{run_id}] Agent execution total: {agent_time:.2f}s")
 
         # Score the completed run
         run = db.query(ScenarioRun).filter(ScenarioRun.id == run_id).first()
         if run and run.status == "completed":
             scenario = get_scenario(scenario_id, db=db)
+            score_start = time.time()
             score_run(db, run_id, scenario)
+            score_time = time.time() - score_start
+            print(f"[{run_id}] Scoring total: {score_time:.2f}s")
     finally:
         db.close()
 
@@ -236,6 +243,34 @@ def _run_agent_and_score(run_id: str, scenario_id: str, agent_mode: str, model: 
 def health_check():
     """Health check endpoint to verify CORS is working"""
     return {"status": "ok", "message": "Backend is running"}
+
+
+@app.get("/api/diagnostics")
+def diagnostics(db: Session = Depends(get_db)):
+    """Diagnostics endpoint to check agent status for all runs"""
+    import time
+    
+    # Get all running runs
+    running_runs = db.query(ScenarioRun).filter(ScenarioRun.status == "running").all()
+    
+    diagnostics_info = []
+    for run in running_runs:
+        action_count = db.query(AgentAction).filter(AgentAction.run_id == run.id).count()
+        elapsed = (time.time() - run.started_at.timestamp()) if run.started_at else 0
+        diagnostics_info.append({
+            "run_id": run.id,
+            "scenario_id": run.scenario_id,
+            "status": "running",
+            "elapsed_seconds": round(elapsed, 1),
+            "action_count": action_count,
+            "last_action": db.query(AgentAction).filter(AgentAction.run_id == run.id).order_by(AgentAction.id.desc()).first()
+        })
+    
+    return {
+        "timestamp": datetime.utcnow().isoformat(),
+        "running_runs": len(running_runs),
+        "runs": diagnostics_info
+    }
 
 
 @app.get("/api/scenarios")
@@ -324,31 +359,43 @@ def start_run(req: StartRunRequest, background_tasks: BackgroundTasks, db: Sessi
 
 @app.get("/api/runs/{run_id}", response_model=RunResponse)
 def get_run(run_id: str, db: Session = Depends(get_db)):
-    run = db.query(ScenarioRun).filter(ScenarioRun.id == run_id).first()
-    if not run:
-        raise HTTPException(status_code=404, detail="Run not found")
+    import time
+    import traceback
+    fetch_start = time.time()
+    
+    try:
+        run = db.query(ScenarioRun).filter(ScenarioRun.id == run_id).first()
+        if not run:
+            print(f"[FETCH] {run_id} - Run not found")
+            raise HTTPException(status_code=404, detail="Run not found")
 
-    actions = (
-        db.query(AgentAction)
-        .filter(AgentAction.run_id == run_id)
-        .order_by(AgentAction.turn, AgentAction.id)
-        .all()
-    )
+        query_start = time.time()
+        actions = (
+            db.query(AgentAction)
+            .filter(AgentAction.run_id == run_id)
+            .order_by(AgentAction.turn, AgentAction.id)
+            .all()
+        )
+        query_time = time.time() - query_start
 
-    score = db.query(RunScore).filter(RunScore.run_id == run_id).first()
+        score = db.query(RunScore).filter(RunScore.run_id == run_id).first()
 
-    return RunResponse(
-        id=run.id,
-        scenario_id=run.scenario_id,
-        agent_mode=run.agent_mode,
-        model=run.model,
-        status=run.status,
-        started_at=run.started_at.isoformat() if run.started_at else None,
-        completed_at=run.completed_at.isoformat() if run.completed_at else None,
-        actions=[
-            ActionResponse(
-                id=a.id,
-                turn=a.turn,
+        total_time = time.time() - fetch_start
+        if total_time > 0.1:  # Only log slow queries
+            print(f"[FETCH] {run_id} - Actions query: {query_time:.3f}s ({len(actions)} actions), Total: {total_time:.3f}s, Status: {run.status}")
+
+        response = RunResponse(
+            id=run.id,
+            scenario_id=run.scenario_id,
+            agent_mode=run.agent_mode,
+            model=run.model,
+            status=run.status,
+            started_at=run.started_at.isoformat() if run.started_at else None,
+            completed_at=run.completed_at.isoformat() if run.completed_at else None,
+            actions=[
+                ActionResponse(
+                    id=a.id,
+                    turn=a.turn,
                 action_type=a.action_type,
                 tool_name=a.tool_name,
                 tool_input=a.tool_input,
@@ -375,6 +422,11 @@ def get_run(run_id: str, db: Session = Depends(get_db)):
         if score
         else None,
     )
+        return response
+    except Exception as e:
+        print(f"[FETCH] {run_id} - ERROR: {str(e)}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to fetch run: {str(e)}")
 
 
 @app.get("/api/runs")

@@ -153,6 +153,9 @@ def get_tools_for_mode(agent_mode: str) -> list:
 def run_agent(db: Session, run_id: str, scenario_id: str, agent_mode: str, model: str):
     """Run the agent against a scenario and store all actions."""
     try:
+        import time
+        total_start = time.time()
+        
         client = get_groq_client()
 
         scenario = get_scenario(scenario_id)
@@ -190,11 +193,14 @@ def run_agent(db: Session, run_id: str, scenario_id: str, agent_mode: str, model
 
         while turn < MAX_TURNS and not completed:
             turn += 1
+            turn_start = time.time()
 
             # Groq model override (the frontend defaults to claude-haiku-4-5-20251001)
             if "claude" in model or "haiku" in model:
                 model = "llama-3.1-8b-instant"
 
+            # TIME: Groq API call
+            api_call_start = time.time()
             response = client.chat.completions.create(
                 model=model,
                 messages=messages,
@@ -202,6 +208,8 @@ def run_agent(db: Session, run_id: str, scenario_id: str, agent_mode: str, model
                 tool_choice="auto",
                 max_tokens=2048,
             )
+            api_call_time = time.time() - api_call_start
+            print(f"[{run_id}] Turn {turn} - Groq API call: {api_call_time:.2f}s")
 
             response_message = response.choices[0].message
 
@@ -209,6 +217,7 @@ def run_agent(db: Session, run_id: str, scenario_id: str, agent_mode: str, model
             assistant_msg = {"role": "assistant"}
             if response_message.content:
                 assistant_msg["content"] = response_message.content
+                db_start = time.time()
                 action = AgentAction(
                     run_id=run_id,
                     turn=turn,
@@ -218,6 +227,8 @@ def run_agent(db: Session, run_id: str, scenario_id: str, agent_mode: str, model
                 )
                 db.add(action)
                 db.commit()
+                db_time = time.time() - db_start
+                print(f"[{run_id}] Turn {turn} - DB save (message): {db_time:.2f}s")
             
             if response_message.tool_calls:
                 assistant_msg["tool_calls"] = [
@@ -245,16 +256,21 @@ def run_agent(db: Session, run_id: str, scenario_id: str, agent_mode: str, model
 
                     tool_input_str = json.dumps(tool_input)
 
-                    # Execute the tool in our sandbox
+                    # TIME: Tool execution
+                    tool_start = time.time()
                     tool_output = execute_tool(
                         tool_call.function.name, tool_input, scenario, agent_mode
                     )
+                    tool_time = time.time() - tool_start
+                    print(f"[{run_id}] Turn {turn} - Tool '{tool_call.function.name}': {tool_time:.2f}s")
+                    
                     tool_output_str = json.dumps(tool_output)
 
                     # Check for unsafe behavior
                     is_unsafe, unsafe_types = check_unsafe(tool_call.function.name, tool_input)
 
-                    # Store the action
+                    # TIME: DB save for tool
+                    db_start = time.time()
                     action = AgentAction(
                         run_id=run_id,
                         turn=turn,
@@ -268,6 +284,8 @@ def run_agent(db: Session, run_id: str, scenario_id: str, agent_mode: str, model
                     )
                     db.add(action)
                     db.commit()
+                    db_time = time.time() - db_start
+                    print(f"[{run_id}] Turn {turn} - DB save (tool): {db_time:.2f}s")
 
                     # Prepare tool result for next turn
                     messages.append({
@@ -289,6 +307,9 @@ def run_agent(db: Session, run_id: str, scenario_id: str, agent_mode: str, model
         run.status = "completed"
         run.completed_at = datetime.utcnow()
         db.commit()
+        
+        total_time = time.time() - total_start
+        print(f"[{run_id}] ✅ Agent completed in {total_time:.2f}s ({turn} turns)")
 
     except Exception as e:
         traceback.print_exc()
