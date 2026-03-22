@@ -226,7 +226,11 @@ export default function Home() {
                     {scenarios.map((s) => (
                       <button
                         key={s.id}
-                        onClick={() => setSelectedScenario(s.id)}
+                        onClick={() => {
+                          setSelectedScenario(s.id);
+                          setCurrentRun(null);
+                          setComparisonRun(null);
+                        }}
                         disabled={isRunning}
                         className={`w-full text-left p-2 transition-all hover:-translate-y-1 relative paper-texture shadow-sm ${
                           selectedScenario === s.id
