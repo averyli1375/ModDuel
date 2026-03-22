@@ -448,7 +448,7 @@ export default function Home() {
       )}
 
       {/* Main content */}
-      <main className={`flex-1 max-w-[1600px] mx-auto w-full p-4 relative z-10 ${activeTab === "reckoning" ? "overflow-y-auto" : "overflow-hidden"}`}>
+      <main className={`flex-1 max-w-[1600px] mx-auto w-full px-4 pt-4 pb-2 relative z-10 ${activeTab === "reckoning" ? "overflow-y-auto" : "overflow-hidden"}`}>
         {activeTab === "arena" ? (
           <div className="flex gap-4 h-full min-h-0">
             {/* Left sidebar: Scenario selector */}
@@ -845,7 +845,7 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-wood-light/20 py-3 text-center text-xs text-parchment-dark rope-divider relative z-10">
+      <footer className="border-t border-wood-light/20 pb-3 text-center text-xs text-parchment-dark rope-divider relative z-10">
         ModDuel | HooHacks 2026
       </footer>
 
