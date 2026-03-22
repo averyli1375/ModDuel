@@ -39,7 +39,6 @@ export default function Home() {
   const [showResultsButton, setShowResultsButton] = useState(false);
   const [researchCounts, setResearchCounts] = useState<Record<string, number>>({});
   const [researchExperiment, setResearchExperiment] = useState<ResearchExperiment | null>(null);
-  const [researchConcurrency, setResearchConcurrency] = useState(1);
   const [selectedResearchRunId, setSelectedResearchRunId] = useState<string | null>(null);
   const [selectedResearchRun, setSelectedResearchRun] = useState<Run | null>(null);
   const [researchStarting, setResearchStarting] = useState(false);
@@ -158,7 +157,7 @@ export default function Home() {
         name: "The Research Lab",
         agent_mode: agentMode,
         model: "claude-haiku-4-5-20251001",
-        max_concurrency: Math.max(1, researchConcurrency),
+        max_concurrency: 1,
         scenarios: scenarioPayload,
       });
       setResearchExperiment(exp);
@@ -544,8 +543,6 @@ export default function Home() {
             counts={researchCounts}
             onCountChange={handleResearchCountChange}
             onRunExperiment={handleStartResearchExperiment}
-            concurrency={researchConcurrency}
-            onConcurrencyChange={(value) => setResearchConcurrency(Math.max(1, Math.min(8, value || 1)))}
             isStarting={researchStarting}
             experiment={researchExperiment}
             etaText={etaText}

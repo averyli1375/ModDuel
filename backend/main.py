@@ -827,7 +827,8 @@ def start_research_experiment(req: StartResearchExperimentRequest, db: Session =
         name=req.name,
         agent_mode=req.agent_mode,
         model=req.model,
-        max_concurrency=max(1, int(req.max_concurrency)),
+        # Concurrency is intentionally fixed to sequential execution to avoid provider rate limits.
+        max_concurrency=1,
         status="pending",
         total_runs=total_runs,
         pending_runs=total_runs,

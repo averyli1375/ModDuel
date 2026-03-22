@@ -8,8 +8,6 @@ interface ResearchLabProps {
   counts: Record<string, number>;
   onCountChange: (scenarioId: string, count: number) => void;
   onRunExperiment: () => void;
-  concurrency: number;
-  onConcurrencyChange: (value: number) => void;
   isStarting: boolean;
   experiment: ResearchExperiment | null;
   etaText: string | null;
@@ -25,8 +23,6 @@ export default function ResearchLab({
   counts,
   onCountChange,
   onRunExperiment,
-  concurrency,
-  onConcurrencyChange,
   isStarting,
   experiment,
   etaText,
@@ -37,7 +33,10 @@ export default function ResearchLab({
   onGoToResults,
 }: ResearchLabProps) {
   const totalPlanned = scenarios.reduce((acc, s) => acc + (counts[s.id] || 0), 0);
-  const canRun = totalPlanned > 0 && !isStarting && (!experiment || experiment.status !== "running");
+  const canRun =
+    totalPlanned > 0 &&
+    !isStarting &&
+    (!experiment || experiment.status !== "running");
 
   return (
     <div className="flex gap-4 h-full min-h-0">
@@ -58,10 +57,22 @@ export default function ResearchLab({
                 <div className="mt-2 flex items-center gap-2">
                   <label className="text-[11px] uppercase tracking-wider text-wood-dark/70">Runs</label>
                   <input
-                    type="number"
-                    min={0}
-                    value={counts[s.id] || 0}
-                    onChange={(e) => onCountChange(s.id, Number(e.target.value || 0))}
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={counts[s.id] === 0 ? "" : counts[s.id]}
+                    placeholder="0"
+                    onFocus={(e) => e.currentTarget.select()}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      if (!/^\d*$/.test(raw)) return;
+                      if (raw === "") {
+                        onCountChange(s.id, 0);
+                        return;
+                      }
+                      const parsed = Number.parseInt(raw, 10);
+                      onCountChange(s.id, Number.isNaN(parsed) ? 0 : parsed);
+                    }}
                     className="w-20 px-2 py-1 text-sm border border-wood-dark/30 bg-parchment text-wood-dark rounded-sm"
                   />
                 </div>
@@ -71,18 +82,9 @@ export default function ResearchLab({
 
           <div className="mt-3 border-t border-wood-dark/20 pt-3 space-y-2">
             <p className="text-xs text-wood-dark/80">Total planned runs: {totalPlanned}</p>
-            <div className="flex items-center justify-between gap-2">
-              <label className="text-xs text-wood-dark/80 uppercase tracking-wider">Concurrency</label>
-              <input
-                type="number"
-                min={1}
-                max={8}
-                value={concurrency}
-                onChange={(e) => onConcurrencyChange(Number(e.target.value || 1))}
-                className="w-20 px-2 py-1 text-sm border border-wood-dark/30 bg-parchment text-wood-dark rounded-sm"
-                disabled={isStarting || (experiment?.status === "running")}
-              />
-            </div>
+            <p className="text-[11px] text-wood-dark/80">
+              Execution mode: sequential (1 run at a time) to avoid rate limits.
+            </p>
             <button
               onClick={onRunExperiment}
               disabled={!canRun}
