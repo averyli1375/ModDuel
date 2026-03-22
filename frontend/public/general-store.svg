@@ -20,15 +20,6 @@
     </filter>
   </defs>
   
-  <!-- Blacksmith building (background right) -->
-  <rect x="350" y="250" width="200" height="350" fill="url(#wood-planks)"/>
-  <polygon points="330,250 450,150 570,250" fill="#8c3a3a" />
-  <rect x="390" y="190" width="120" height="30" fill="#e8d5b7" stroke="#3e2a1d" stroke-width="3"/>
-  <text x="450" y="212" font-family="serif" font-weight="bold" font-size="18" text-anchor="middle" fill="#3e2a1d">BLACKSMITH</text>
-  <rect x="380" y="320" width="60" height="80" fill="#3e2a1d"/>
-  <rect x="470" y="320" width="50" height="60" fill="#ffd700" opacity="0.8" filter="url(#glow)"/>
-  <rect x="470" y="320" width="50" height="60" fill="none" stroke="#3e2a1d" stroke-width="4"/>
-
   <!-- Main General Store Building -->
   <!-- False Front roof -->
   <path d="M 50,200 L 50,50 L 350,50 L 350,200 Z" fill="url(#wood-dark)"/>
@@ -59,6 +50,11 @@
   <rect x="230" y="340" width="60" height="140" fill="#5c4033"/>
   <circle cx="280" cy="410" r="4" fill="#1a0f08"/>
   
+    <!-- Stairs -->
+  <rect x="210" y="480" width="100" height="20" fill="#6b4c3a" stroke="#3e2a1d" stroke-width="2"/>
+  <rect x="200" y="500" width="120" height="25" fill="#6b4c3a" stroke="#3e2a1d" stroke-width="2"/>
+  <rect x="190" y="525" width="140" height="25" fill="#6b4c3a" stroke="#3e2a1d" stroke-width="2"/>
+
   <!-- Base boardwalk -->
   <polygon points="10,600 390,600 370,550 30,550" fill="url(#wood-dark)"/>
   <rect x="10" y="590" width="380" height="10" fill="#2e1d10"/>

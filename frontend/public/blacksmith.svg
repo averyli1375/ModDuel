@@ -1,0 +1,145 @@
+<svg width="600" height="600" viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Wood texturing -->
+    <pattern id="wood-red" patternUnits="userSpaceOnUse" width="40" height="20">
+      <rect width="40" height="20" fill="#7a2e2e"/>
+      <line x1="0" y1="20" x2="40" y2="20" stroke="#521d1d" stroke-width="2"/>
+      <line x1="10" y1="0" x2="10" y2="20" stroke="#521d1d" stroke-width="1" opacity="0.5"/>
+    </pattern>
+    <pattern id="wood-dark" patternUnits="userSpaceOnUse" width="40" height="20">
+      <rect width="40" height="20" fill="#4a2e1b"/>
+      <line x1="0" y1="20" x2="40" y2="20" stroke="#2e1a0f" stroke-width="2"/>
+    </pattern>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="4" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <g transform="translate(0, 10)">
+  <!-- Left Side: Red Main Building -->
+  <!-- False front upper -->
+  <rect x="50" y="150" width="220" height="120" fill="url(#wood-red)"/>
+  <rect x="110" y="120" width="100" height="30" fill="url(#wood-red)"/>
+  
+  <!-- Left/Right false front posts/trim -->
+  <rect x="40" y="150" width="10" height="120" fill="#4a1a1a"/>
+  <rect x="270" y="150" width="10" height="120" fill="#4a1a1a"/>
+  <rect x="40" y="140" width="240" height="10" fill="#4a1a1a"/>
+  <rect x="100" y="110" width="120" height="10" fill="#4a1a1a"/>
+  
+  <!-- Wagon wheel decoration (Left & Right of sign) -->
+  <circle cx="80" cy="190" r="20" fill="none" stroke="#4a2e1b" stroke-width="4"/>
+  <line x1="80" y1="170" x2="80" y2="210" stroke="#4a2e1b" stroke-width="2"/>
+  <line x1="60" y1="190" x2="100" y2="190" stroke="#4a2e1b" stroke-width="2"/>
+  <line x1="66" y1="176" x2="94" y2="204" stroke="#4a2e1b" stroke-width="2"/>
+  <line x1="94" y1="176" x2="66" y2="204" stroke="#4a2e1b" stroke-width="2"/>
+
+  <circle cx="240" cy="190" r="20" fill="none" stroke="#4a2e1b" stroke-width="4"/>
+  <line x1="240" y1="170" x2="240" y2="210" stroke="#4a2e1b" stroke-width="2"/>
+  <line x1="220" y1="190" x2="260" y2="190" stroke="#4a2e1b" stroke-width="2"/>
+  <line x1="226" y1="176" x2="254" y2="204" stroke="#4a2e1b" stroke-width="2"/>
+  <line x1="254" y1="176" x2="226" y2="204" stroke="#4a2e1b" stroke-width="2"/>
+
+  <!-- Blacksmith Sign -->
+  <rect x="105" y="160" width="110" height="60" fill="#e8d5b7" stroke="#2e1a0f" stroke-width="2"/>
+  <!-- Hammers/Horseshoe above sign -->
+  <path d="M 152,135 A 8,8 0 1,0 168,135" fill="none" stroke="#111" stroke-width="3"/>
+  <line x1="145" y1="145" x2="155" y2="130" stroke="#111" stroke-width="3"/>
+  <line x1="175" y1="145" x2="165" y2="130" stroke="#111" stroke-width="3"/>
+  <!-- Text -->
+  <text x="160" y="185" font-family="Courier, serif" font-weight="900" font-size="16" text-anchor="middle" fill="#111">BLACKSMITH</text>
+  <text x="160" y="205" font-family="Courier, serif" font-weight="bold" font-size="9" text-anchor="middle" fill="#333">LUCKY TOWN</text>
+
+  <!-- Ground floor of red building -->
+  <rect x="60" y="270" width="200" height="270" fill="url(#wood-red)"/>
+  
+  <!-- Left Side Porch Roof -->
+  <polygon points="50,270 270,270 290,320 30,320" fill="#6d4c38"/>
+  <polygon points="50,270 270,270 260,280 60,280" fill="#583c2c"/>
+
+  <!-- Left Side Porch Posts -->
+  <rect x="40" y="320" width="12" height="220" fill="#3e2a1d"/>
+  <rect x="110" y="320" width="12" height="220" fill="#3e2a1d"/>
+  <rect x="190" y="320" width="12" height="220" fill="#3e2a1d"/>
+  <rect x="270" y="320" width="12" height="220" fill="#3e2a1d"/>
+
+  <!-- Hanging Lamps -->
+  <rect x="114" y="330" width="4" height="15" fill="#111"/>
+  <circle cx="116" cy="350" r="10" fill="#ffd700" opacity="0.8" filter="url(#glow)"/>
+  <rect x="194" y="330" width="4" height="15" fill="#111"/>
+  <circle cx="196" cy="350" r="10" fill="#ffd700" opacity="0.8" filter="url(#glow)"/>
+
+  <!-- Door & Windows under porch -->
+  <rect x="124" y="400" width="60" height="140" fill="#2e1a0f"/>
+  <rect x="129" y="405" width="50" height="135" fill="#3a2215"/>
+  <circle cx="174" cy="470" r="4" fill="#1a0f08"/>
+  
+  <rect x="70" y="380" width="30" height="60" fill="#111"/>
+  <rect x="210" y="380" width="40" height="70" fill="#111"/>
+
+  <!-- RIGHT SIDE: Open lean-to forge -->
+  <!-- Back Wall of forge area (dark) -->
+  <rect x="270" y="300" width="250" height="240" fill="url(#wood-dark)"/>
+  
+  <!-- Forge details inside lean-to -->
+  <!-- Stone Chimney base -->
+  <path d="M 460,380 L 510,380 L 510,540 L 460,540 Z" fill="#666"/>
+  <path d="M 470,380 L 500,380 L 500,200 L 470,200 Z" fill="#777"/>
+  <path d="M 470,480 Q 485,460 500,480 L 500,540 L 470,540 Z" fill="#111"/>
+  <path d="M 475,500 Q 485,470 495,500 L 495,540 L 475,540 Z" fill="#ff4500" filter="url(#glow)"/>
+
+  <!-- Hanging Tools -->
+  <rect x="300" y="350" width="100" height="6" fill="#222"/>
+  <rect x="310" y="356" width="3" height="30" fill="#111"/>
+  <rect x="330" y="356" width="6" height="20" fill="#777"/>
+  <rect x="350" y="356" width="4" height="40" fill="#111"/>
+  <rect x="370" y="356" width="5" height="15" fill="#555"/>
+  <circle cx="390" cy="370" r="10" fill="none" stroke="#666" stroke-width="3"/>
+
+  <!-- Lean-to Shed Roof covering the open area -->
+  <polygon points="270,280 500,320 540,360 270,300" fill="#2b2b2b"/>
+  <!-- Roof ridges -->
+  <line x1="280" y1="282" x2="280" y2="303" stroke="#555" stroke-width="2"/>
+  <line x1="330" y1="288" x2="330" y2="313" stroke="#555" stroke-width="2"/>
+  <line x1="380" y1="295" x2="380" y2="323" stroke="#555" stroke-width="2"/>
+  <line x1="430" y1="304" x2="430" y2="334" stroke="#555" stroke-width="2"/>
+  <line x1="480" y1="316" x2="480" y2="348" stroke="#555" stroke-width="2"/>
+  <line x1="530" y1="328" x2="530" y2="356" stroke="#555" stroke-width="2"/>
+
+  <!-- Right Shed Supporting Posts -->
+  <rect x="520" y="350" width="12" height="190" fill="#4a2e1b"/>
+  <rect x="340" y="315" width="12" height="225" fill="#4a2e1b"/>
+
+  <!-- Anvil -->
+  <path d="M 370,490 L 390,490 Q 400,490 410,480 L 410,492 L 385,502 L 380,530 L 350,530 L 355,502 L 340,492 L 340,485 Z" fill="#222"/>
+  <rect x="345" y="530" width="40" height="10" fill="#3e2a1d"/>
+
+  <!-- Wagon Wheel prop on right -->
+  <circle cx="510" cy="510" r="24" fill="none" stroke="#5c4033" stroke-width="4"/>
+  <line x1="510" y1="486" x2="510" y2="534" stroke="#5c4033" stroke-width="3"/>
+  <line x1="486" y1="510" x2="534" y2="510" stroke="#5c4033" stroke-width="3"/>
+  <line x1="493" y1="493" x2="527" y2="527" stroke="#5c4033" stroke-width="3"/>
+  <line x1="527" y1="493" x2="493" y2="527" stroke="#5c4033" stroke-width="3"/>
+
+  <!-- Barrel -->
+  <rect x="420" y="500" width="25" height="35" fill="#6d4c38" rx="4"/>
+  <line x1="420" y1="510" x2="445" y2="510" stroke="#111" stroke-width="2"/>
+  <line x1="420" y1="525" x2="445" y2="525" stroke="#111" stroke-width="2"/>
+
+  <!-- Cactus on the far right outside the building -->
+  <g transform="translate(560, 480)">
+    <rect x="-10" y="-80" width="20" height="140" fill="#2e8b57" rx="10"/>
+    <path d="M -10,-40 Q -30,-40 -30,-60 L -30,-70" fill="none" stroke="#2e8b57" stroke-width="10" stroke-linecap="round"/>
+    <path d="M 10,-20 Q 30,-20 30,-40 L 30,-50" fill="none" stroke="#2e8b57" stroke-width="10" stroke-linecap="round"/>
+  </g>
+
+  </g>
+
+  <!-- Base ground / boardwalk -->
+  <polygon points="-10,600 590,600 570,550 10,550" fill="url(#wood-dark)"/>
+  <rect x="-10" y="590" width="600" height="10" fill="#2e1d10"/>
+</svg>

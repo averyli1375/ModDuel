@@ -79,6 +79,9 @@
   <rect x="320" y="390" width="60" height="90" fill="#ffd700" opacity="0.8" filter="url(#glow)"/>
   <rect x="320" y="390" width="60" height="90" fill="none" stroke="#2e1d10" stroke-width="5"/>
   
+    <!-- Stoop step -->
+  <rect x="140" y="530" width="170" height="20" fill="#8b5a2b" stroke="#2e1d10" stroke-width="2"/>
+
   <!-- Boardwalk -->
   <polygon points="-10,600 450,600 430,550 10,550" fill="url(#wood-dark)"/>
   <rect x="-10" y="590" width="460" height="10" fill="#2e1d10"/>
