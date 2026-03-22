@@ -8,8 +8,12 @@ interface ResearchLabProps {
   counts: Record<string, number>;
   onCountChange: (scenarioId: string, count: number) => void;
   onRunExperiment: () => void;
+  concurrency: number;
+  onConcurrencyChange: (value: number) => void;
   isStarting: boolean;
   experiment: ResearchExperiment | null;
+  etaText: string | null;
+  activeRunLabel: string | null;
   selectedRunId: string | null;
   selectedRun: Run | null;
   onSelectRun: (runId: string) => void;
@@ -21,8 +25,12 @@ export default function ResearchLab({
   counts,
   onCountChange,
   onRunExperiment,
+  concurrency,
+  onConcurrencyChange,
   isStarting,
   experiment,
+  etaText,
+  activeRunLabel,
   selectedRunId,
   selectedRun,
   onSelectRun,
@@ -63,6 +71,18 @@ export default function ResearchLab({
 
           <div className="mt-3 border-t border-wood-dark/20 pt-3 space-y-2">
             <p className="text-xs text-wood-dark/80">Total planned runs: {totalPlanned}</p>
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-xs text-wood-dark/80 uppercase tracking-wider">Concurrency</label>
+              <input
+                type="number"
+                min={1}
+                max={8}
+                value={concurrency}
+                onChange={(e) => onConcurrencyChange(Number(e.target.value || 1))}
+                className="w-20 px-2 py-1 text-sm border border-wood-dark/30 bg-parchment text-wood-dark rounded-sm"
+                disabled={isStarting || (experiment?.status === "running")}
+              />
+            </div>
             <button
               onClick={onRunExperiment}
               disabled={!canRun}
@@ -141,6 +161,8 @@ export default function ResearchLab({
               <p>Running: {experiment.running_runs}</p>
               <p>Completed: {experiment.completed_runs}</p>
               <p>Failed: {experiment.failed_runs}</p>
+              <p>ETA: {etaText || "Calculating..."}</p>
+              <p>Active run: {activeRunLabel || "None"}</p>
               {experiment.latest_error ? (
                 <p className="text-danger text-xs border border-danger/30 bg-danger/10 p-2 rounded-sm">
                   Latest error: {experiment.latest_error}

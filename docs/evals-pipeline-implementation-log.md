@@ -30,6 +30,10 @@ This file is updated as implementation proceeds.
 - 2026-03-21: Added new UI component `frontend/src/components/ResearchLab.tsx`.
 - 2026-03-21: Added new top-level tab `The Research Lab` in `frontend/src/app/page.tsx` and connected live polling + run log selection.
 - 2026-03-21: Smoke-tested research endpoints via FastAPI TestClient (start/get returned 200 and transitioned to running).
+- 2026-03-21: Slice 2 complete — added `experiment_id` filtering to `GET /api/runs` for Reckoning auto-filter flow.
+- 2026-03-21: Slice 2 complete — added Research Lab concurrency input (default 1) and wired it into experiment start payload.
+- 2026-03-21: Slice 2 complete — added ETA/status enrichment in Research Lab right panel (ETA + active run label).
+- 2026-03-21: Slice 2 complete — added Reckoning filter badge/clear action when navigating from Research Lab results.
 
 ## Current Status
 - Planning complete.

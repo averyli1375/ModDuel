@@ -378,8 +378,25 @@ def get_run(run_id: str, db: Session = Depends(get_db)):
 
 
 @app.get("/api/runs")
-def list_runs(db: Session = Depends(get_db)):
-    runs = db.query(ScenarioRun).order_by(ScenarioRun.started_at.desc()).limit(50).all()
+def list_runs(experiment_id: Optional[str] = None, db: Session = Depends(get_db)):
+    if experiment_id:
+        run_ids = [
+            row.run_id
+            for row in db.query(ResearchExperimentRun.run_id)
+            .filter(ResearchExperimentRun.experiment_id == experiment_id)
+            .all()
+        ]
+        if not run_ids:
+            return []
+        runs = (
+            db.query(ScenarioRun)
+            .filter(ScenarioRun.id.in_(run_ids))
+            .order_by(ScenarioRun.started_at.desc())
+            .limit(200)
+            .all()
+        )
+    else:
+        runs = db.query(ScenarioRun).order_by(ScenarioRun.started_at.desc()).limit(50).all()
     return [
         {
             "id": r.id,

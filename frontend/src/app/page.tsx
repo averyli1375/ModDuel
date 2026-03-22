@@ -39,9 +39,11 @@ export default function Home() {
   const [showResultsButton, setShowResultsButton] = useState(false);
   const [researchCounts, setResearchCounts] = useState<Record<string, number>>({});
   const [researchExperiment, setResearchExperiment] = useState<ResearchExperiment | null>(null);
+  const [researchConcurrency, setResearchConcurrency] = useState(1);
   const [selectedResearchRunId, setSelectedResearchRunId] = useState<string | null>(null);
   const [selectedResearchRun, setSelectedResearchRun] = useState<Run | null>(null);
   const [researchStarting, setResearchStarting] = useState(false);
+  const [reckoningExperimentFilter, setReckoningExperimentFilter] = useState<string | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const researchPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -68,13 +70,13 @@ export default function Home() {
   }, [selectedScenario]);
 
   // Fetch past runs
-  const loadPastRuns = useCallback(() => {
-    fetchRuns().then(setPastRuns).catch(console.error);
+  const loadPastRuns = useCallback((experimentId?: string) => {
+    fetchRuns(experimentId).then(setPastRuns).catch(console.error);
   }, []);
 
   useEffect(() => {
-    loadPastRuns();
-  }, [loadPastRuns]);
+    loadPastRuns(reckoningExperimentFilter || undefined);
+  }, [loadPastRuns, reckoningExperimentFilter]);
 
   // Polling for run updates
   const startPolling = useCallback((runId: string) => {
@@ -91,7 +93,7 @@ export default function Home() {
           pollingRef.current = null;
           setIsRunning(false);
           setShowResultsButton(true);
-          loadPastRuns();
+          loadPastRuns(reckoningExperimentFilter || undefined);
         }
       } catch (err) {
         console.error("Polling error:", err);
@@ -156,7 +158,7 @@ export default function Home() {
         name: "The Research Lab",
         agent_mode: agentMode,
         model: "claude-haiku-4-5-20251001",
-        max_concurrency: 1,
+        max_concurrency: Math.max(1, researchConcurrency),
         scenarios: scenarioPayload,
       });
       setResearchExperiment(exp);
@@ -180,8 +182,41 @@ export default function Home() {
   };
 
   const handleResearchGoToResults = () => {
+    if (researchExperiment) {
+      setReckoningExperimentFilter(researchExperiment.experiment_id);
+      loadPastRuns(researchExperiment.experiment_id);
+      const firstCompletedRun = researchExperiment.scenario_groups
+        .flatMap((g) => g.runs)
+        .find((r) => r.status === "completed");
+      if (firstCompletedRun) {
+        handleLoadComparison("");
+        handleSelectResearchRun(firstCompletedRun.run_id);
+      }
+    }
     setActiveTab("reckoning");
   };
+
+  const runningResearchRun = researchExperiment
+    ? researchExperiment.scenario_groups.flatMap((g) => g.runs).find((r) => r.status === "running")
+    : null;
+
+  const etaText = (() => {
+    if (!researchExperiment) return null;
+    if (researchExperiment.status === "completed") return "Ready";
+    if (!researchExperiment.started_at) return "Waiting to start";
+    const done = researchExperiment.completed_runs + researchExperiment.failed_runs;
+    if (done <= 0) return "Estimating...";
+
+    const startedMs = new Date(researchExperiment.started_at).getTime();
+    const elapsedSec = Math.max(1, Math.floor((Date.now() - startedMs) / 1000));
+    const avgSecPerRun = elapsedSec / done;
+    const remaining = Math.max(0, researchExperiment.total_runs - done);
+    const etaSec = Math.floor(avgSecPerRun * remaining);
+
+    const minutes = Math.floor(etaSec / 60);
+    const seconds = etaSec % 60;
+    return `${minutes}m ${seconds}s`;
+  })();
 
   const handleStartRun = async () => {
     if (!selectedScenario || isRunning) return;
@@ -509,8 +544,12 @@ export default function Home() {
             counts={researchCounts}
             onCountChange={handleResearchCountChange}
             onRunExperiment={handleStartResearchExperiment}
+            concurrency={researchConcurrency}
+            onConcurrencyChange={(value) => setResearchConcurrency(Math.max(1, Math.min(8, value || 1)))}
             isStarting={researchStarting}
             experiment={researchExperiment}
+            etaText={etaText}
+            activeRunLabel={runningResearchRun ? `${runningResearchRun.scenario_name} / Run ${runningResearchRun.run_index}` : null}
             selectedRunId={selectedResearchRunId}
             selectedRun={selectedResearchRun}
             onSelectRun={handleSelectResearchRun}
@@ -525,6 +564,22 @@ export default function Home() {
                 <h3 className="font-[family-name:var(--font-serif)] text-gold text-sm uppercase tracking-wider">
                   Duel ledger comparison:
                 </h3>
+                {reckoningExperimentFilter ? (
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="px-2 py-1 rounded bg-safe/20 border border-safe/40 text-safe">
+                      Filtered: {reckoningExperimentFilter}
+                    </span>
+                    <button
+                      onClick={() => {
+                        setReckoningExperimentFilter(null);
+                        loadPastRuns();
+                      }}
+                      className="px-2 py-1 rounded border border-wood-light/30 text-parchment hover:bg-wood-light/20"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                ) : null}
                 <select
                   value={selectedComparison}
                   onChange={(e) => {

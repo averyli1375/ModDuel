@@ -151,8 +151,9 @@ export async function fetchRun(runId: string): Promise<Run> {
   return res.json();
 }
 
-export async function fetchRuns(): Promise<RunSummary[]> {
-  const res = await fetch(`${API_BASE}/api/runs`);
+export async function fetchRuns(experimentId?: string): Promise<RunSummary[]> {
+  const query = experimentId ? `?experiment_id=${encodeURIComponent(experimentId)}` : "";
+  const res = await fetch(`${API_BASE}/api/runs${query}`);
   if (!res.ok) throw new Error("Failed to fetch runs");
   return res.json();
 }
