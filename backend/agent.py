@@ -195,9 +195,10 @@ def run_agent(db: Session, run_id: str, scenario_id: str, agent_mode: str, model
             turn += 1
             turn_start = time.time()
 
-            # Groq model override (the frontend defaults to claude-haiku-4-5-20251001)
-            if "claude" in model or "haiku" in model:
-                model = "llama-3.1-8b-instant"
+            # Groq: Convert Claude to Llama (for backward compatibility if needed)
+            # Frontend now sends llama-3.3-70b-versatile explicitly, so this is just a fallback
+            if "claude" in model.lower() or "haiku" in model.lower():
+                model = "llama-3.3-70b-versatile"
 
             # TIME: Groq API call
             api_call_start = time.time()
