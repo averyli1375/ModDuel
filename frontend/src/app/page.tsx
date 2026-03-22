@@ -383,7 +383,7 @@ export default function Home() {
         }}></div>
         <div className="relative max-w-[1600px] mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="wood-board px-6 py-2 shadow-lg border-2 border-wood-darker transform -rotate-1 relative z-10 before:absolute before:inset-0 before:bg-gradient-to-t before:from-black/20 before:to-transparent">
+            <div className="wood-board pegged-board px-6 py-2 shadow-lg border-2 border-wood-darker transform -rotate-1 relative z-10 before:absolute before:inset-0 before:bg-gradient-to-t before:from-black/20 before:to-transparent">
               <div className="absolute top-1 left-1 w-1.5 h-1.5 rounded-full bg-zinc-800 shadow-inner" />
               <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-zinc-800 shadow-inner" />
               <div className="absolute bottom-1 left-1 w-1.5 h-1.5 rounded-full bg-zinc-800 shadow-inner" />
@@ -488,7 +488,7 @@ export default function Home() {
               </div>
 
               {/* Agent mode selector */}
-              <div className="wood-board p-2 animate-fade-in relative shrink-0">
+              <div className="wood-board pegged-board p-2 animate-fade-in relative shrink-0">
                 {/* Nails */}
                 <div className="absolute top-1 left-1 w-1.5 h-1.5 rounded-full bg-wood-darker shadow-inner" />
                 <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-wood-darker shadow-inner" />
@@ -848,7 +848,7 @@ export default function Home() {
       {/* Results Ready Popup */}
       {isResultsReady && activeTab === "arena" && showResultsPopup && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] backdrop-blur-sm animate-fade-in">
-          <div className="wanted-poster border-4 border-double border-gold p-8 shadow-2xl max-w-md animate-bounce-in relative" style={{
+          <div className="wanted-poster pegged-board border-4 border-double border-gold p-8 shadow-2xl max-w-md animate-bounce-in relative" style={{
             boxShadow: '0_0_40px_rgba(212,160,23,0.5), inset 0_0_20px_rgba(0,0,0,0.3)'
           }}>
             <div className="absolute top-3 left-3 w-3 h-3 rounded-full bg-wood-darker shadow-inner" />
