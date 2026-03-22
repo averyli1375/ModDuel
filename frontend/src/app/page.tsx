@@ -609,6 +609,7 @@ export default function Home() {
                         id: e.id,
                         from: e.from,
                         subject: e.subject,
+                        body: e.body,
                       })) || []
                     }
                     readEmails={readEmails}

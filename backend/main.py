@@ -304,7 +304,7 @@ def get_scenario_detail(scenario_id: str, db: Session = Depends(get_db)):
         "description": scenario["description"],
         "task": scenario["task"],
         "emails": [
-            {"id": e["id"], "from": e["from"], "subject": e["subject"]}
+            {"id": e["id"], "from": e["from"], "subject": e["subject"], "body": e["body"]}
             for e in scenario["emails"]
         ],
         "email_count": len(scenario["emails"]),
