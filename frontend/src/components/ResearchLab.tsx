@@ -111,21 +111,21 @@ export default function ResearchLab({
       </div>
 
       <div className="flex-1 min-w-0 wood-board p-2 h-full min-h-0 flex flex-col">
-        <div className="terminal-panel p-3 h-full flex flex-col min-h-0">
-          <h3 className="font-[family-name:var(--font-western)] text-parchment text-lg border-b border-zinc-700/50 pb-2">
+        <div className="border border-amber-200/40 p-3 h-full flex flex-col min-h-0" style={{ background: "#a08963" }}>
+          <h3 className="font-[family-name:var(--font-western)] text-wood-light text-lg border-b border-wood-light/20 pb-2">
             Experiment Runs
           </h3>
 
-          {!experiment ? (
-            <p className="text-zinc-500 text-sm mt-3">Start a research experiment to see grouped runs.</p>
-          ) : (
-            <div className="mt-3 flex-1 min-h-0 flex flex-col gap-3">
-              <div className="overflow-y-auto custom-scrollbar pr-1 space-y-2 max-h-[45%]">
-                {experiment.scenario_groups.map((group) => (
-                  <details key={group.scenario_id} open className="bg-zinc-900/60 border border-zinc-700 rounded-sm">
-                    <summary className="cursor-pointer p-2 text-sm text-parchment flex items-center justify-between">
+          <div className="mt-3 flex-1 min-h-0 flex flex-col gap-3">
+            <div className="overflow-y-auto custom-scrollbar pr-1 space-y-2 max-h-[45%]">
+              {!experiment ? (
+                <p className="text-wood-light/70 text-sm">Start a research experiment to see grouped runs.</p>
+              ) : (
+                experiment.scenario_groups.map((group) => (
+                  <details key={group.scenario_id} open className="bg-parchment/25 border border-wood-light/20 rounded-sm">
+                    <summary className="cursor-pointer p-2 text-sm text-wood-light flex items-center justify-between font-semibold">
                       <span>{group.scenario_name}</span>
-                      <span className="text-xs text-zinc-400">
+                      <span className="text-xs text-wood-light/70">
                         {group.completed_runs + group.failed_runs}/{group.total_runs}
                       </span>
                     </summary>
@@ -134,10 +134,10 @@ export default function ResearchLab({
                         <button
                           key={run.id}
                           onClick={() => onSelectRun(run.run_id)}
-                          className={`w-full text-left px-2 py-1 rounded text-xs border ${
+                          className={`w-full text-left px-2 py-1 rounded text-xs border transition-all ${
                             selectedRunId === run.run_id
-                              ? "bg-gold/20 border-gold/40 text-gold"
-                              : "bg-zinc-800/60 border-zinc-700 text-zinc-200"
+                              ? "bg-gold/20 border-gold/40 text-wood-light font-semibold"
+                              : "bg-parchment/15 border-wood-light/15 text-wood-light/80 hover:bg-parchment/25"
                           }`}
                         >
                           Run {run.run_index} - {run.status}
@@ -145,14 +145,14 @@ export default function ResearchLab({
                       ))}
                     </div>
                   </details>
-                ))}
-              </div>
-
-              <div className="flex-1 min-h-0">
-                <ActionLog actions={selectedRun?.actions || []} isRunning={selectedRun?.status === "running"} />
-              </div>
+                ))
+              )}
             </div>
-          )}
+
+            <div className="flex-1 min-h-0">
+              <ActionLog actions={selectedRun?.actions || []} isRunning={selectedRun?.status === "running"} />
+            </div>
+          </div>
         </div>
       </div>
 
