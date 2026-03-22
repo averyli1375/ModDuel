@@ -185,13 +185,8 @@ export default function Home() {
     if (researchExperiment) {
       setReckoningExperimentFilter(researchExperiment.experiment_id);
       loadPastRuns(researchExperiment.experiment_id);
-      const firstCompletedRun = researchExperiment.scenario_groups
-        .flatMap((g) => g.runs)
-        .find((r) => r.status === "completed");
-      if (firstCompletedRun) {
-        handleLoadComparison("");
-        handleSelectResearchRun(firstCompletedRun.run_id);
-      }
+      setCurrentRun(null);
+      setComparisonRun(null);
     }
     setActiveTab("reckoning");
   };
@@ -558,55 +553,120 @@ export default function Home() {
         ) : (
           /* Reckoning (Dashboard) tab */
           <div className="max-w-5xl mx-auto">
-            {/* Comparison selector */}
-            <div className="parchment-card p-4 mb-6 animate-fade-in">
-              <div className="flex items-center gap-4 flex-wrap">
-                <h3 className="font-[family-name:var(--font-serif)] text-gold text-sm uppercase tracking-wider">
-                  Duel ledger comparison:
-                </h3>
-                {reckoningExperimentFilter ? (
-                  <div className="flex items-center gap-2 text-xs">
-                    <span className="px-2 py-1 rounded bg-safe/20 border border-safe/40 text-safe">
-                      Filtered: {reckoningExperimentFilter}
-                    </span>
+            {/* Comparison selector or aggregated results */}
+            {reckoningExperimentFilter ? (
+              /* Aggregated research results */
+              <div className="space-y-6">
+                <div className="parchment-card p-4 animate-fade-in">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-[family-name:var(--font-serif)] text-gold text-sm uppercase tracking-wider mb-2">
+                        Research Experiment Results
+                      </h3>
+                      <span className="px-2 py-1 rounded bg-safe/20 border border-safe/40 text-safe text-xs">
+                        Experiment: {reckoningExperimentFilter}
+                      </span>
+                    </div>
                     <button
                       onClick={() => {
                         setReckoningExperimentFilter(null);
+                        setCurrentRun(null);
                         loadPastRuns();
                       }}
-                      className="px-2 py-1 rounded border border-wood-light/30 text-parchment hover:bg-wood-light/20"
+                      className="px-4 py-2 rounded border border-wood-light/30 text-parchment hover:bg-wood-light/20 text-sm"
                     >
-                      Clear
+                      View Individual Runs
                     </button>
                   </div>
-                ) : null}
-                <select
-                  value={selectedComparison}
-                  onChange={(e) => {
-                    setSelectedComparison(e.target.value);
-                    handleLoadComparison(e.target.value);
-                  }}
-                  className="bg-wood-medium border border-gold/30 rounded px-3 py-1.5 text-sm text-parchment focus:outline-none focus:border-gold"
-                >
-                  <option value="">No comparison</option>
-                  {pastRuns
-                    .filter(
-                      (r) =>
-                        r.status === "completed" && r.id !== currentRun?.id
-                    )
-                    .map((r) => (
-                      <option key={r.id} value={r.id}>
-                        [{r.id}] {r.scenario_id} / {r.agent_mode}
-                      </option>
-                    ))}
-                </select>
-              </div>
-            </div>
+                </div>
 
-            <Dashboard
-              currentRun={currentRun}
-              comparisonRun={comparisonRun}
-            />
+                {/* Aggregated metrics by scenario */}
+                <div className="space-y-4">
+                  {researchExperiment && researchExperiment.scenario_groups.map((group) => {
+                    if (group.completed_runs === 0) return null;
+
+                    // Get runs from this group to calculate averages
+                    // Since we don't have scores readily available, show group stats
+                    return (
+                      <div key={group.scenario_id} className="parchment-card p-6">
+                        <h4 className="font-[family-name:var(--font-western)] text-lg text-gold mb-4">{group.scenario_name}</h4>
+                        <div className="grid grid-cols-2 gap-4 mb-4">
+                          <div className="bg-wood-dark/20 p-4 rounded border border-wood-light/20">
+                            <p className="text-xs text-parchment-dark uppercase tracking-wider mb-1">Total Runs</p>
+                            <p className="text-2xl font-bold text-parchment">{group.total_runs}</p>
+                          </div>
+                          <div className="bg-wood-dark/20 p-4 rounded border border-wood-light/20">
+                            <p className="text-xs text-parchment-dark uppercase tracking-wider mb-1">Completed</p>
+                            <p className="text-2xl font-bold text-safe">{group.completed_runs}</p>
+                          </div>
+                          <div className="bg-wood-dark/20 p-4 rounded border border-wood-light/20">
+                            <p className="text-xs text-parchment-dark uppercase tracking-wider mb-1">Failed</p>
+                            <p className="text-2xl font-bold text-danger">{group.failed_runs}</p>
+                          </div>
+                          <div className="bg-wood-dark/20 p-4 rounded border border-wood-light/20">
+                            <p className="text-xs text-parchment-dark uppercase tracking-wider mb-1">Pending</p>
+                            <p className="text-2xl font-bold text-rust">{group.pending_runs}</p>
+                          </div>
+                        </div>
+                        <details className="bg-wood-dark/10 p-3 rounded border border-wood-light/20">
+                          <summary className="cursor-pointer text-sm text-parchment font-semibold">View Individual Runs from {group.scenario_name}</summary>
+                          <div className="mt-3 space-y-2">
+                            {group.runs.map((run, idx) => (
+                              <button
+                                key={run.run_id}
+                                onClick={() => {
+                                  setReckoningExperimentFilter(null);
+                                  handleSelectResearchRun(run.run_id);
+                                }}
+                                className="w-full text-left px-3 py-2 rounded text-xs border bg-zinc-800/60 border-zinc-700 text-zinc-200 hover:bg-zinc-700/60 transition-colors"
+                              >
+                                Run {run.run_index} - {run.status}
+                              </button>
+                            ))}
+                          </div>
+                        </details>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              /* Individual run results */
+              <>
+                <div className="parchment-card p-4 mb-6 animate-fade-in">
+                  <div className="flex items-center gap-4 flex-wrap">
+                    <h3 className="font-[family-name:var(--font-serif)] text-gold text-sm uppercase tracking-wider">
+                      Duel ledger comparison:
+                    </h3>
+                    <select
+                      value={selectedComparison}
+                      onChange={(e) => {
+                        setSelectedComparison(e.target.value);
+                        handleLoadComparison(e.target.value);
+                      }}
+                      className="bg-wood-medium border border-gold/30 rounded px-3 py-1.5 text-sm text-parchment focus:outline-none focus:border-gold"
+                    >
+                      <option value="">No comparison</option>
+                      {pastRuns
+                        .filter(
+                          (r) =>
+                            r.status === "completed" && r.id !== currentRun?.id
+                        )
+                        .map((r) => (
+                          <option key={r.id} value={r.id}>
+                            [{r.id}] {r.scenario_id} / {r.agent_mode}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                </div>
+
+                <Dashboard
+                  currentRun={currentRun}
+                  comparisonRun={comparisonRun}
+                />
+              </>
+            )}
           </div>
         )}
       </main>
