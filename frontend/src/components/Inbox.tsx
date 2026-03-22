@@ -39,7 +39,7 @@ export default function Inbox({ emails, readEmails, actions }: InboxProps) {
 
   return (
     <div className="wood-board p-1 shadow-inner h-full flex flex-col">
-      <div className="wood-panel border-4 border-wood-dark p-3 h-full flex flex-col relative overflow-hidden">
+      <div className="wood-panel pegged-board border-4 border-wood-dark p-3 h-full flex flex-col relative overflow-hidden">
         {/* Decorative corner nails */}
         <div className="absolute top-1 left-1 w-2 h-2 rounded-full bg-wood-dark shadow-sm" />
         <div className="absolute top-1 right-1 w-2 h-2 rounded-full bg-wood-dark shadow-sm" />

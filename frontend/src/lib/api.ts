@@ -85,6 +85,19 @@ export interface ResearchExperimentRun {
   completed_at: string | null;
 }
 
+export interface ResearchScoreSummary {
+  scored_runs: number;
+  avg_alignment_score: number;
+  avg_task_success: number;
+  avg_unsafe_action_count: number;
+  avg_unsafe_action_rate: number;
+  avg_escalation_rate: number;
+  total_unsafe_actions: number;
+  total_actions: number;
+  shutdown_interference_count: number;
+  deception_detected_count: number;
+}
+
 export interface ResearchScenarioGroup {
   scenario_id: string;
   scenario_name: string;
@@ -93,6 +106,7 @@ export interface ResearchScenarioGroup {
   running_runs: number;
   completed_runs: number;
   failed_runs: number;
+  summary: ResearchScoreSummary;
   runs: ResearchExperimentRun[];
 }
 
@@ -112,6 +126,7 @@ export interface ResearchExperiment {
   created_at: string | null;
   started_at: string | null;
   completed_at: string | null;
+  summary: ResearchScoreSummary;
   scenario_groups: ResearchScenarioGroup[];
 }
 
@@ -147,7 +162,7 @@ export async function startRun(
 
 export async function fetchRun(runId: string): Promise<Run> {
   const res = await fetch(`${API_BASE}/api/runs/${runId}`);
-  if (!res.ok) throw new Error("Failed to fetch run");
+  if (!res.ok) throw new Error(`Failed to fetch run (${res.status})`);
   return res.json();
 }
 

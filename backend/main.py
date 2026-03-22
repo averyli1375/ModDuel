@@ -175,6 +175,19 @@ class ResearchExperimentRunResponse(BaseModel):
     completed_at: Optional[str] = None
 
 
+class ResearchScoreSummaryResponse(BaseModel):
+    scored_runs: int
+    avg_alignment_score: float
+    avg_task_success: float
+    avg_unsafe_action_count: float
+    avg_unsafe_action_rate: float
+    avg_escalation_rate: float
+    total_unsafe_actions: int
+    total_actions: int
+    shutdown_interference_count: int
+    deception_detected_count: int
+
+
 class ResearchScenarioGroupResponse(BaseModel):
     scenario_id: str
     scenario_name: str
@@ -183,6 +196,7 @@ class ResearchScenarioGroupResponse(BaseModel):
     running_runs: int
     completed_runs: int
     failed_runs: int
+    summary: ResearchScoreSummaryResponse
     runs: List[ResearchExperimentRunResponse]
 
 
@@ -202,6 +216,7 @@ class ResearchExperimentResponse(BaseModel):
     created_at: Optional[str] = None
     started_at: Optional[str] = None
     completed_at: Optional[str] = None
+    summary: ResearchScoreSummaryResponse
     scenario_groups: List[ResearchScenarioGroupResponse] = []
 
 
@@ -780,6 +795,41 @@ def _run_research_experiment(experiment_id: str):
         db.close()
 
 
+def _build_research_score_summary(scores: list[RunScore]) -> ResearchScoreSummaryResponse:
+    if not scores:
+        return ResearchScoreSummaryResponse(
+            scored_runs=0,
+            avg_alignment_score=0.0,
+            avg_task_success=0.0,
+            avg_unsafe_action_count=0.0,
+            avg_unsafe_action_rate=0.0,
+            avg_escalation_rate=0.0,
+            total_unsafe_actions=0,
+            total_actions=0,
+            shutdown_interference_count=0,
+            deception_detected_count=0,
+        )
+
+    scored_runs = len(scores)
+    total_unsafe_actions = sum(int(s.unsafe_action_count or 0) for s in scores)
+    total_actions = sum(int(s.total_actions or 0) for s in scores)
+    shutdown_interference_count = sum(1 for s in scores if s.shutdown_interference)
+    deception_detected_count = sum(1 for s in scores if s.deception_detected)
+
+    return ResearchScoreSummaryResponse(
+        scored_runs=scored_runs,
+        avg_alignment_score=round(sum(float(s.alignment_score or 0.0) for s in scores) / scored_runs, 2),
+        avg_task_success=round(sum(float(s.task_success or 0.0) for s in scores) / scored_runs, 2),
+        avg_unsafe_action_count=round(total_unsafe_actions / scored_runs, 2),
+        avg_unsafe_action_rate=round(sum(float(s.unsafe_action_rate or 0.0) for s in scores) / scored_runs, 4),
+        avg_escalation_rate=round(sum(float(s.escalation_rate or 0.0) for s in scores) / scored_runs, 4),
+        total_unsafe_actions=total_unsafe_actions,
+        total_actions=total_actions,
+        shutdown_interference_count=shutdown_interference_count,
+        deception_detected_count=deception_detected_count,
+    )
+
+
 def _serialize_research_experiment(exp: ResearchExperiment, db: Session) -> ResearchExperimentResponse:
     scenario_map = {s["id"]: s["name"] for s in get_all_scenarios(db=db)}
 
@@ -790,7 +840,14 @@ def _serialize_research_experiment(exp: ResearchExperiment, db: Session) -> Rese
         .all()
     )
 
+    run_ids = [r.run_id for r in runs]
+    run_scores_by_run_id: dict[str, RunScore] = {}
+    if run_ids:
+        score_rows = db.query(RunScore).filter(RunScore.run_id.in_(run_ids)).all()
+        run_scores_by_run_id = {s.run_id: s for s in score_rows}
+
     groups: dict[str, ResearchScenarioGroupResponse] = {}
+    group_scores: dict[str, list[RunScore]] = {}
     for r in runs:
         if r.scenario_id not in groups:
             groups[r.scenario_id] = ResearchScenarioGroupResponse(
@@ -801,8 +858,10 @@ def _serialize_research_experiment(exp: ResearchExperiment, db: Session) -> Rese
                 running_runs=0,
                 completed_runs=0,
                 failed_runs=0,
+                summary=_build_research_score_summary([]),
                 runs=[],
             )
+            group_scores[r.scenario_id] = []
 
         group = groups[r.scenario_id]
         group.total_runs += 1
@@ -814,6 +873,10 @@ def _serialize_research_experiment(exp: ResearchExperiment, db: Session) -> Rese
             group.completed_runs += 1
         elif r.status == "failed":
             group.failed_runs += 1
+
+        score_row = run_scores_by_run_id.get(r.run_id)
+        if score_row:
+            group_scores[r.scenario_id].append(score_row)
 
         group.runs.append(
             ResearchExperimentRunResponse(
@@ -828,6 +891,11 @@ def _serialize_research_experiment(exp: ResearchExperiment, db: Session) -> Rese
                 completed_at=r.completed_at.isoformat() if r.completed_at else None,
             )
         )
+
+    for scenario_id, group in groups.items():
+        group.summary = _build_research_score_summary(group_scores.get(scenario_id, []))
+
+    experiment_summary = _build_research_score_summary(list(run_scores_by_run_id.values()))
 
     return ResearchExperimentResponse(
         experiment_id=exp.id,
@@ -845,6 +913,7 @@ def _serialize_research_experiment(exp: ResearchExperiment, db: Session) -> Rese
         created_at=exp.created_at.isoformat() if exp.created_at else None,
         started_at=exp.started_at.isoformat() if exp.started_at else None,
         completed_at=exp.completed_at.isoformat() if exp.completed_at else None,
+        summary=experiment_summary,
         scenario_groups=list(groups.values()),
     )
 

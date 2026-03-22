@@ -24,6 +24,8 @@
   --safe: #4a7c59;
   --safe-light: #6b9e7a;
   --badge-yellow: #fbbf24;
+  --radius-soft: 6px;
+  --radius-soft-inner: 4px;
 }
 
 @theme inline {
@@ -107,7 +109,7 @@ body::after {
   position: relative;
   background: linear-gradient(145deg, rgba(47, 26, 17, 0.88), rgba(30, 17, 11, 0.9));
   border: 1px solid rgba(210, 145, 82, 0.45);
-  border-radius: 6px;
+  border-radius: var(--radius-soft);
   box-shadow:
     inset 0 0 0 1px rgba(255, 235, 188, 0.08),
     0 10px 24px rgba(12, 6, 3, 0.3);
@@ -119,7 +121,7 @@ body::after {
   position: absolute;
   inset: 6px;
   border: 1px dashed rgba(212, 160, 23, 0.16);
-  border-radius: 4px;
+  border-radius: var(--radius-soft-inner);
   pointer-events: none;
 }
 
@@ -500,16 +502,19 @@ body::after {
     inset 0 0 15px rgba(0,0,0,0.8),
     0 4px 6px -1px rgba(0,0,0,0.5);
   border: 1px solid #2a160b;
+  border-radius: var(--radius-soft);
 }
 
 .wood-panel {
   background-color: #2a160b;
   background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.05' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23noise)' opacity='0.15'/%3E%3C/svg%3E");
   box-shadow: inset 0 0 20px rgba(0,0,0,0.9);
+  border-radius: var(--radius-soft-inner);
 }
 
 .paper-texture {
   background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.6' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23noise)' opacity='0.15'/%3E%3C/svg%3E");
+  border-radius: var(--radius-soft-inner);
 }
 
 .wanted-poster {
@@ -521,12 +526,41 @@ body::after {
   box-shadow: 
     inset 0 0 20px rgba(100, 50, 0, 0.1),
     2px 2px 5px rgba(0,0,0,0.3);
+  border-radius: var(--radius-soft);
 }
 
 .terminal-panel {
   background-image: 
     radial-gradient(rgba(0,100,0,0.1) 10%, transparent 80%),
     url("data:image/svg+xml,%3Csvg width='10' height='10' viewBox='0 0 10 10' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h10v1H0z' fill='rgba(0,255,0,0.03)'/%3E%3C/svg%3E");
+  border-radius: var(--radius-soft-inner);
+}
+
+/* Pegged boards should feel hand-mounted: square edges + slight tilt. */
+.pegged-board {
+  border-radius: 0 !important;
+  rotate: -0.75deg;
+}
+
+.pegged-board::before,
+.pegged-board::after {
+  border-radius: 0 !important;
+}
+
+/* Keep interactive controls consistently slightly rounded across panels. */
+.wood-board button,
+.wood-board input,
+.wood-board select,
+.wood-board textarea,
+.wanted-poster button,
+.wanted-poster input,
+.wanted-poster select,
+.wanted-poster textarea,
+.terminal-panel button,
+.terminal-panel input,
+.terminal-panel select,
+.terminal-panel textarea {
+  border-radius: var(--radius-soft-inner);
 }
 
 .terminal-text {

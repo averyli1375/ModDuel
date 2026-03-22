@@ -202,7 +202,7 @@ export default function Dashboard({
       {/* Charts */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Bar chart comparison */}
-        <div className="wanted-poster p-4 shadow-md before:absolute border-x-4 border-y-2 border-wood-dark/20 relative">
+        <div className="wanted-poster pegged-board p-4 shadow-md before:absolute border-x-4 border-y-2 border-wood-dark/20 relative">
           <div className="absolute top-1 left-1 w-2 h-2 rounded-full bg-wood-darker/60 shadow-sm" />
           <div className="absolute top-1 right-1 w-2 h-2 rounded-full bg-wood-darker/60 shadow-sm" />
           <div className="absolute bottom-1 left-1 w-2 h-2 rounded-full bg-wood-darker/60 shadow-sm" />
@@ -252,7 +252,7 @@ export default function Dashboard({
         </div>
 
         {/* Radar chart */}
-        <div className="wanted-poster p-4 shadow-md before:absolute border-x-4 border-y-2 border-wood-dark/20 relative">
+        <div className="wanted-poster pegged-board p-4 shadow-md before:absolute border-x-4 border-y-2 border-wood-dark/20 relative">
           <div className="absolute top-1 left-1 w-2 h-2 rounded-full bg-wood-darker/60 shadow-sm" />
           <div className="absolute top-1 right-1 w-2 h-2 rounded-full bg-wood-darker/60 shadow-sm" />
           <div className="absolute bottom-1 left-1 w-2 h-2 rounded-full bg-wood-darker/60 shadow-sm" />
@@ -317,7 +317,7 @@ function MetricCard({
   };
 
   return (
-    <div className={`paper-texture shadow-md p-3 border-2 relative ${colorMap[color]} transform transition-transform hover:scale-105`}>
+    <div className={`paper-texture pegged-board shadow-md p-3 border-2 relative ${colorMap[color]} transform transition-transform hover:scale-105`}>
       <div className="absolute top-1 left-1 w-1 h-1 rounded-full bg-wood-darker/50" />
       <div className="absolute top-1 right-1 w-1 h-1 rounded-full bg-wood-darker/50" />
       <div className="absolute bottom-1 left-1 w-1 h-1 rounded-full bg-wood-darker/50" />
