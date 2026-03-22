@@ -60,6 +60,61 @@ export interface RunSummary {
   completed_at: string | null;
 }
 
+export interface ResearchScenarioCount {
+  scenario_id: string;
+  run_count: number;
+}
+
+export interface StartResearchExperimentPayload {
+  name?: string;
+  agent_mode: "baseline" | "guarded";
+  model?: string;
+  max_concurrency: number;
+  scenarios: ResearchScenarioCount[];
+}
+
+export interface ResearchExperimentRun {
+  id: number;
+  scenario_id: string;
+  scenario_name: string;
+  run_index: number;
+  run_id: string;
+  status: string;
+  error: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+}
+
+export interface ResearchScenarioGroup {
+  scenario_id: string;
+  scenario_name: string;
+  total_runs: number;
+  pending_runs: number;
+  running_runs: number;
+  completed_runs: number;
+  failed_runs: number;
+  runs: ResearchExperimentRun[];
+}
+
+export interface ResearchExperiment {
+  experiment_id: string;
+  name: string | null;
+  agent_mode: string;
+  model: string;
+  max_concurrency: number;
+  status: string;
+  total_runs: number;
+  pending_runs: number;
+  running_runs: number;
+  completed_runs: number;
+  failed_runs: number;
+  latest_error: string | null;
+  created_at: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  scenario_groups: ResearchScenarioGroup[];
+}
+
 export async function fetchScenarios(): Promise<Scenario[]> {
   const res = await fetch(`${API_BASE}/api/scenarios`);
   if (!res.ok) throw new Error("Failed to fetch scenarios");
@@ -107,5 +162,29 @@ export async function compareRuns(
 ): Promise<{ runs: { run_id: string; scenario_id: string; agent_mode: string; scores: Score }[] }> {
   const res = await fetch(`${API_BASE}/api/compare?run_ids=${runIds.join(",")}`);
   if (!res.ok) throw new Error("Failed to compare runs");
+  return res.json();
+}
+
+export async function startResearchExperiment(
+  payload: StartResearchExperimentPayload
+): Promise<ResearchExperiment> {
+  const res = await fetch(`${API_BASE}/api/research/experiments/start`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error("Failed to start research experiment");
+  return res.json();
+}
+
+export async function fetchResearchExperiment(experimentId: string): Promise<ResearchExperiment> {
+  const res = await fetch(`${API_BASE}/api/research/experiments/${experimentId}`);
+  if (!res.ok) throw new Error("Failed to fetch research experiment");
+  return res.json();
+}
+
+export async function fetchResearchExperiments(): Promise<ResearchExperiment[]> {
+  const res = await fetch(`${API_BASE}/api/research/experiments`);
+  if (!res.ok) throw new Error("Failed to fetch research experiments");
   return res.json();
 }

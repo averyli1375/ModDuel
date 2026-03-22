@@ -5,19 +5,23 @@ import {
   Scenario,
   ScenarioDetail,
   Run,
+  ResearchExperiment,
   fetchScenarios,
   fetchScenarioDetail,
   startRun,
   fetchRun,
   fetchRuns,
   RunSummary,
+  startResearchExperiment,
+  fetchResearchExperiment,
 } from "@/lib/api";
 import Inbox from "@/components/Inbox";
 import TaskBoard from "@/components/TaskBoard";
 import ActionLog from "@/components/ActionLog";
 import Dashboard from "@/components/Dashboard";
+import ResearchLab from "@/components/ResearchLab";
 
-type Tab = "arena" | "reckoning";
+type Tab = "arena" | "research_lab" | "reckoning";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<Tab>("arena");
@@ -33,7 +37,13 @@ export default function Home() {
   const [selectedComparison, setSelectedComparison] = useState<string>("");
   const [showResultsPopup, setShowResultsPopup] = useState(true);
   const [showResultsButton, setShowResultsButton] = useState(false);
+  const [researchCounts, setResearchCounts] = useState<Record<string, number>>({});
+  const [researchExperiment, setResearchExperiment] = useState<ResearchExperiment | null>(null);
+  const [selectedResearchRunId, setSelectedResearchRunId] = useState<string | null>(null);
+  const [selectedResearchRun, setSelectedResearchRun] = useState<Run | null>(null);
+  const [researchStarting, setResearchStarting] = useState(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const researchPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Fetch scenarios on mount
   useEffect(() => {
@@ -41,6 +51,11 @@ export default function Home() {
       .then((data) => {
         setScenarios(data);
         if (data.length > 0) setSelectedScenario(data[0].id);
+        const initialCounts: Record<string, number> = {};
+        data.forEach((s) => {
+          initialCounts[s.id] = 0;
+        });
+        setResearchCounts(initialCounts);
       })
       .catch(() => setError("Failed to connect to backend. Is the server running?"));
   }, []);
@@ -88,8 +103,85 @@ export default function Home() {
   useEffect(() => {
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
+      if (researchPollingRef.current) clearInterval(researchPollingRef.current);
     };
   }, []);
+
+  const handleResearchCountChange = (scenarioId: string, count: number) => {
+    setResearchCounts((prev) => ({
+      ...prev,
+      [scenarioId]: Math.max(0, Number.isFinite(count) ? count : 0),
+    }));
+  };
+
+  const startResearchPolling = useCallback((experimentId: string) => {
+    if (researchPollingRef.current) clearInterval(researchPollingRef.current);
+
+    researchPollingRef.current = setInterval(async () => {
+      try {
+        const exp = await fetchResearchExperiment(experimentId);
+        setResearchExperiment(exp);
+
+        if (exp.status === "completed" || exp.status === "failed") {
+          if (researchPollingRef.current) clearInterval(researchPollingRef.current);
+          researchPollingRef.current = null;
+        }
+      } catch (err) {
+        console.error("Research polling error:", err);
+      }
+    }, 2500);
+  }, []);
+
+  const handleStartResearchExperiment = async () => {
+    if (researchStarting || (researchExperiment && researchExperiment.status === "running")) {
+      return;
+    }
+
+    const scenarioPayload = Object.entries(researchCounts)
+      .map(([scenario_id, run_count]) => ({ scenario_id, run_count }))
+      .filter((s) => s.run_count > 0);
+
+    if (scenarioPayload.length === 0) {
+      setError("Set at least one scenario run count above 0 to start The Research Lab experiment.");
+      return;
+    }
+
+    setError(null);
+    setResearchStarting(true);
+    setSelectedResearchRunId(null);
+    setSelectedResearchRun(null);
+
+    try {
+      const exp = await startResearchExperiment({
+        name: "The Research Lab",
+        agent_mode: agentMode,
+        model: "claude-haiku-4-5-20251001",
+        max_concurrency: 1,
+        scenarios: scenarioPayload,
+      });
+      setResearchExperiment(exp);
+      startResearchPolling(exp.experiment_id);
+    } catch (err) {
+      setError(`Failed to start research experiment: ${err}`);
+    } finally {
+      setResearchStarting(false);
+    }
+  };
+
+  const handleSelectResearchRun = async (runId: string) => {
+    setSelectedResearchRunId(runId);
+    try {
+      const run = await fetchRun(runId);
+      setSelectedResearchRun(run);
+      setCurrentRun(run);
+    } catch (err) {
+      console.error("Failed to fetch research run:", err);
+    }
+  };
+
+  const handleResearchGoToResults = () => {
+    setActiveTab("reckoning");
+  };
 
   const handleStartRun = async () => {
     if (!selectedScenario || isRunning) return;
@@ -187,6 +279,16 @@ export default function Home() {
               <span className="font-[family-name:var(--font-western)] text-xl">The Arena</span>
             </button>
             <button
+              onClick={() => setActiveTab("research_lab")}
+              className={`wood-board px-6 py-2 shadow-md transition-all border-2 border-wood-darker transform hover:-translate-y-1 ${
+                activeTab === "research_lab"
+                  ? "bg-amber-100 text-wood-dark"
+                  : "bg-wood-medium opacity-80 text-wood-dark hover:opacity-100"
+              }`}
+            >
+              <span className="font-[family-name:var(--font-western)] text-xl">The Research Lab</span>
+            </button>
+            <button
               onClick={() => setActiveTab("reckoning")}
               className={`wood-board px-6 py-2 shadow-md transition-all border-2 border-wood-darker transform hover:-translate-y-1 ${
                 activeTab === "reckoning"
@@ -214,7 +316,7 @@ export default function Home() {
       )}
 
       {/* Main content */}
-      <main className={`flex-1 max-w-[1600px] mx-auto w-full p-4 relative z-10 ${activeTab === "arena" ? "overflow-hidden" : "overflow-y-auto"}`}>
+      <main className={`flex-1 max-w-[1600px] mx-auto w-full p-4 relative z-10 ${activeTab === "reckoning" ? "overflow-y-auto" : "overflow-hidden"}`}>
         {activeTab === "arena" ? (
           <div className="flex gap-4 h-full min-h-0">
             {/* Left sidebar: Scenario selector */}
@@ -401,6 +503,19 @@ export default function Home() {
               </div>
             </div>
           </div>
+        ) : activeTab === "research_lab" ? (
+          <ResearchLab
+            scenarios={scenarios}
+            counts={researchCounts}
+            onCountChange={handleResearchCountChange}
+            onRunExperiment={handleStartResearchExperiment}
+            isStarting={researchStarting}
+            experiment={researchExperiment}
+            selectedRunId={selectedResearchRunId}
+            selectedRun={selectedResearchRun}
+            onSelectRun={handleSelectResearchRun}
+            onGoToResults={handleResearchGoToResults}
+          />
         ) : (
           /* Reckoning (Dashboard) tab */
           <div className="max-w-5xl mx-auto">

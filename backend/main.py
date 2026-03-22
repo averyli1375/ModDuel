@@ -4,6 +4,7 @@ import uuid
 import threading
 import json
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, List
@@ -15,7 +16,7 @@ from sqlalchemy.orm import Session
 from database import get_db, init_db
 from models import (
     ScenarioRun, AgentAction, RunScore, EvalRecord, EvalAnalysis,
-    Scenario, BatchRun, BatchResult,
+    Scenario, BatchRun, BatchResult, ResearchExperiment, ResearchExperimentRun,
 )
 from scenarios import get_all_scenarios, get_scenario
 
@@ -147,6 +148,61 @@ class AnalysisResponse(BaseModel):
     analyzer_prompt_version: str
     raw_analyzer_response: Optional[str] = None
     created_at: Optional[str] = None
+
+
+class ResearchScenarioCount(BaseModel):
+    scenario_id: str
+    run_count: int
+
+
+class StartResearchExperimentRequest(BaseModel):
+    name: Optional[str] = None
+    agent_mode: str = "baseline"
+    model: str = "claude-haiku-4-5-20251001"
+    max_concurrency: int = 1
+    scenarios: List[ResearchScenarioCount]
+
+
+class ResearchExperimentRunResponse(BaseModel):
+    id: int
+    scenario_id: str
+    scenario_name: str
+    run_index: int
+    run_id: str
+    status: str
+    error: Optional[str] = None
+    started_at: Optional[str] = None
+    completed_at: Optional[str] = None
+
+
+class ResearchScenarioGroupResponse(BaseModel):
+    scenario_id: str
+    scenario_name: str
+    total_runs: int
+    pending_runs: int
+    running_runs: int
+    completed_runs: int
+    failed_runs: int
+    runs: List[ResearchExperimentRunResponse]
+
+
+class ResearchExperimentResponse(BaseModel):
+    experiment_id: str
+    name: Optional[str] = None
+    agent_mode: str
+    model: str
+    max_concurrency: int
+    status: str
+    total_runs: int
+    pending_runs: int
+    running_runs: int
+    completed_runs: int
+    failed_runs: int
+    latest_error: Optional[str] = None
+    created_at: Optional[str] = None
+    started_at: Optional[str] = None
+    completed_at: Optional[str] = None
+    scenario_groups: List[ResearchScenarioGroupResponse] = []
 
 
 # --- Background runner ---
@@ -501,6 +557,306 @@ def _loads_or_default(raw: Optional[str], default):
         return json.loads(raw)
     except Exception:
         return default
+
+
+# --- Research Lab experiment orchestration ---
+
+
+def _refresh_research_experiment_counters(db: Session, experiment_id: str):
+    exp = db.query(ResearchExperiment).filter(ResearchExperiment.id == experiment_id).first()
+    if not exp:
+        return
+
+    statuses = [
+        row.status
+        for row in db.query(ResearchExperimentRun.status)
+        .filter(ResearchExperimentRun.experiment_id == experiment_id)
+        .all()
+    ]
+
+    exp.total_runs = len(statuses)
+    exp.pending_runs = sum(1 for s in statuses if s == "pending")
+    exp.running_runs = sum(1 for s in statuses if s == "running")
+    exp.completed_runs = sum(1 for s in statuses if s == "completed")
+    exp.failed_runs = sum(1 for s in statuses if s == "failed")
+
+    latest_failed = (
+        db.query(ResearchExperimentRun)
+        .filter(
+            ResearchExperimentRun.experiment_id == experiment_id,
+            ResearchExperimentRun.status == "failed",
+        )
+        .order_by(ResearchExperimentRun.completed_at.desc())
+        .first()
+    )
+    exp.latest_error = latest_failed.error if latest_failed else None
+
+    if exp.pending_runs == 0 and exp.running_runs == 0:
+        exp.status = "completed"
+        if not exp.completed_at:
+            exp.completed_at = datetime.utcnow()
+
+    db.commit()
+
+
+def _execute_research_experiment_run(experiment_id: str, experiment_run_id: int):
+    from database import get_session_factory
+
+    session_factory = get_session_factory()
+    db = session_factory()
+    try:
+        exp_run = (
+            db.query(ResearchExperimentRun)
+            .filter(
+                ResearchExperimentRun.id == experiment_run_id,
+                ResearchExperimentRun.experiment_id == experiment_id,
+            )
+            .first()
+        )
+        if not exp_run:
+            return
+
+        exp = db.query(ResearchExperiment).filter(ResearchExperiment.id == experiment_id).first()
+        if not exp:
+            return
+
+        exp_run.status = "running"
+        exp_run.started_at = datetime.utcnow()
+
+        scenario_run = db.query(ScenarioRun).filter(ScenarioRun.id == exp_run.run_id).first()
+        if not scenario_run:
+            scenario_run = ScenarioRun(
+                id=exp_run.run_id,
+                scenario_id=exp_run.scenario_id,
+                agent_mode=exp.agent_mode,
+                model=exp.model,
+                status="pending",
+                started_at=datetime.utcnow(),
+            )
+            db.add(scenario_run)
+        db.commit()
+
+        run_agent = _get_agents()
+        score_run = _get_scorer()
+
+        try:
+            run_agent(db, exp_run.run_id, exp_run.scenario_id, exp.agent_mode, exp.model)
+
+            finished_run = db.query(ScenarioRun).filter(ScenarioRun.id == exp_run.run_id).first()
+            if finished_run and finished_run.status == "completed":
+                scenario = get_scenario(exp_run.scenario_id, db=db)
+                score_run(db, exp_run.run_id, scenario)
+                exp_run.status = "completed"
+                exp_run.error = None
+            else:
+                exp_run.status = "failed"
+                exp_run.error = "Run did not complete successfully"
+        except Exception as exc:
+            exp_run.status = "failed"
+            exp_run.error = str(exc)
+
+            failed_run = db.query(ScenarioRun).filter(ScenarioRun.id == exp_run.run_id).first()
+            if failed_run:
+                failed_run.status = "failed"
+                failed_run.completed_at = datetime.utcnow()
+
+        exp_run.completed_at = datetime.utcnow()
+        db.commit()
+        _refresh_research_experiment_counters(db, experiment_id)
+    finally:
+        db.close()
+
+
+def _run_research_experiment(experiment_id: str):
+    from database import get_session_factory
+
+    session_factory = get_session_factory()
+    db = session_factory()
+    try:
+        exp = db.query(ResearchExperiment).filter(ResearchExperiment.id == experiment_id).first()
+        if not exp:
+            return
+        exp.status = "running"
+        exp.started_at = datetime.utcnow()
+        db.commit()
+
+        run_ids = [
+            row.id
+            for row in db.query(ResearchExperimentRun.id)
+            .filter(ResearchExperimentRun.experiment_id == experiment_id)
+            .order_by(ResearchExperimentRun.id.asc())
+            .all()
+        ]
+        max_workers = max(1, int(exp.max_concurrency or 1))
+    finally:
+        db.close()
+
+    if max_workers == 1:
+        for rid in run_ids:
+            _execute_research_experiment_run(experiment_id, rid)
+    else:
+        with ThreadPoolExecutor(max_workers=max_workers) as pool:
+            futures = [pool.submit(_execute_research_experiment_run, experiment_id, rid) for rid in run_ids]
+            for fut in futures:
+                try:
+                    fut.result()
+                except Exception:
+                    # Per-run failures are already tracked inside run handlers.
+                    pass
+
+    db = session_factory()
+    try:
+        _refresh_research_experiment_counters(db, experiment_id)
+    finally:
+        db.close()
+
+
+def _serialize_research_experiment(exp: ResearchExperiment, db: Session) -> ResearchExperimentResponse:
+    scenario_map = {s["id"]: s["name"] for s in get_all_scenarios(db=db)}
+
+    runs = (
+        db.query(ResearchExperimentRun)
+        .filter(ResearchExperimentRun.experiment_id == exp.id)
+        .order_by(ResearchExperimentRun.scenario_id.asc(), ResearchExperimentRun.run_index.asc())
+        .all()
+    )
+
+    groups: dict[str, ResearchScenarioGroupResponse] = {}
+    for r in runs:
+        if r.scenario_id not in groups:
+            groups[r.scenario_id] = ResearchScenarioGroupResponse(
+                scenario_id=r.scenario_id,
+                scenario_name=scenario_map.get(r.scenario_id, r.scenario_id),
+                total_runs=0,
+                pending_runs=0,
+                running_runs=0,
+                completed_runs=0,
+                failed_runs=0,
+                runs=[],
+            )
+
+        group = groups[r.scenario_id]
+        group.total_runs += 1
+        if r.status == "pending":
+            group.pending_runs += 1
+        elif r.status == "running":
+            group.running_runs += 1
+        elif r.status == "completed":
+            group.completed_runs += 1
+        elif r.status == "failed":
+            group.failed_runs += 1
+
+        group.runs.append(
+            ResearchExperimentRunResponse(
+                id=r.id,
+                scenario_id=r.scenario_id,
+                scenario_name=group.scenario_name,
+                run_index=r.run_index,
+                run_id=r.run_id,
+                status=r.status,
+                error=r.error,
+                started_at=r.started_at.isoformat() if r.started_at else None,
+                completed_at=r.completed_at.isoformat() if r.completed_at else None,
+            )
+        )
+
+    return ResearchExperimentResponse(
+        experiment_id=exp.id,
+        name=exp.name,
+        agent_mode=exp.agent_mode,
+        model=exp.model,
+        max_concurrency=exp.max_concurrency,
+        status=exp.status,
+        total_runs=exp.total_runs,
+        pending_runs=exp.pending_runs,
+        running_runs=exp.running_runs,
+        completed_runs=exp.completed_runs,
+        failed_runs=exp.failed_runs,
+        latest_error=exp.latest_error,
+        created_at=exp.created_at.isoformat() if exp.created_at else None,
+        started_at=exp.started_at.isoformat() if exp.started_at else None,
+        completed_at=exp.completed_at.isoformat() if exp.completed_at else None,
+        scenario_groups=list(groups.values()),
+    )
+
+
+@app.post("/api/research/experiments/start", response_model=ResearchExperimentResponse)
+def start_research_experiment(req: StartResearchExperimentRequest, db: Session = Depends(get_db)):
+    if req.agent_mode not in ("baseline", "guarded"):
+        raise HTTPException(status_code=400, detail="agent_mode must be 'baseline' or 'guarded'")
+    if not req.scenarios:
+        raise HTTPException(status_code=400, detail="At least one scenario run count is required")
+
+    sanitized: list[ResearchScenarioCount] = []
+    total_runs = 0
+    for item in req.scenarios:
+        run_count = int(item.run_count)
+        if run_count < 0:
+            raise HTTPException(status_code=400, detail="run_count must be >= 0")
+        if run_count == 0:
+            continue
+        scenario = get_scenario(item.scenario_id, db=db)
+        if not scenario:
+            raise HTTPException(status_code=400, detail=f"Invalid scenario_id: {item.scenario_id}")
+        sanitized.append(ResearchScenarioCount(scenario_id=item.scenario_id, run_count=run_count))
+        total_runs += run_count
+
+    if total_runs == 0:
+        raise HTTPException(status_code=400, detail="Provide at least one scenario with run_count > 0")
+
+    experiment_id = str(uuid.uuid4())[:12]
+    exp = ResearchExperiment(
+        id=experiment_id,
+        name=req.name,
+        agent_mode=req.agent_mode,
+        model=req.model,
+        max_concurrency=max(1, int(req.max_concurrency)),
+        status="pending",
+        total_runs=total_runs,
+        pending_runs=total_runs,
+        running_runs=0,
+        completed_runs=0,
+        failed_runs=0,
+        created_at=datetime.utcnow(),
+    )
+    db.add(exp)
+    db.commit()
+
+    run_rows: list[ResearchExperimentRun] = []
+    for item in sanitized:
+        for idx in range(1, item.run_count + 1):
+            run_rows.append(
+                ResearchExperimentRun(
+                    experiment_id=experiment_id,
+                    scenario_id=item.scenario_id,
+                    run_index=idx,
+                    run_id=str(uuid.uuid4())[:8],
+                    status="pending",
+                )
+            )
+
+    db.add_all(run_rows)
+    db.commit()
+    db.refresh(exp)
+
+    thread = threading.Thread(target=_run_research_experiment, args=(experiment_id,), daemon=True)
+    thread.start()
+
+    return _serialize_research_experiment(exp, db)
+
+
+@app.get("/api/research/experiments")
+def list_research_experiments(db: Session = Depends(get_db)):
+    rows = db.query(ResearchExperiment).order_by(ResearchExperiment.created_at.desc()).limit(25).all()
+    return [_serialize_research_experiment(r, db) for r in rows]
+
+
+@app.get("/api/research/experiments/{experiment_id}", response_model=ResearchExperimentResponse)
+def get_research_experiment(experiment_id: str, db: Session = Depends(get_db)):
+    exp = db.query(ResearchExperiment).filter(ResearchExperiment.id == experiment_id).first()
+    if not exp:
+        raise HTTPException(status_code=404, detail="Research experiment not found")
+    return _serialize_research_experiment(exp, db)
 
 
 # --- Scenario CRUD (/api/batch-scenarios) ---
