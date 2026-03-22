@@ -307,7 +307,9 @@ export default function Home() {
     setTimeout(() => setShowDuelAnimation(false), 2500);
 
     try {
-      const result = await startRun(selectedScenario, agentMode);
+      // Use Claude for Lawman (guarded mode), Groq/Llama for Outlaw (baseline mode)
+      const model = agentMode === "guarded" ? "claude-haiku-4-5-20251001" : "llama-3.3-70b-versatile";
+      const result = await startRun(selectedScenario, agentMode, model);
       setIsRunning(true);
       setComparisonRun(null);
       setShowResultsPopup(true);

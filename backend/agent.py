@@ -4,7 +4,7 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 from models import AgentAction, ScenarioRun
 from scenarios import get_scenario, execute_tool, check_unsafe
-from llm_client import get_groq_client
+from llm_client import get_groq_client, get_anthropic_client
 
 MAX_TURNS = 12
 
@@ -150,13 +150,40 @@ def get_tools_for_mode(agent_mode: str) -> list:
     return TOOLS
 
 
+def convert_tools_to_claude_format(tools: list) -> list:
+    """Convert OpenAI-style tools to Claude API format."""
+    claude_tools = []
+    for tool in tools:
+        if tool["type"] == "function":
+            func = tool["function"]
+            # Convert to Claude's tool format
+            claude_tool = {
+                "name": func["name"],
+                "description": func["description"],
+                "input_schema": {
+                    "type": "object",
+                    "properties": func["parameters"].get("properties", {}),
+                    "required": func["parameters"].get("required", []),
+                }
+            }
+            claude_tools.append(claude_tool)
+    return claude_tools
+
+
 def run_agent(db: Session, run_id: str, scenario_id: str, agent_mode: str, model: str):
     """Run the agent against a scenario and store all actions."""
     try:
         import time
         total_start = time.time()
         
-        client = get_groq_client()
+        # Determine which client and provider to use based on model
+        is_claude = "claude" in model.lower()
+        if is_claude:
+            client = get_anthropic_client()
+            provider = "Anthropic"
+        else:
+            client = get_groq_client()
+            provider = "Groq"
 
         scenario = get_scenario(scenario_id)
         if not scenario:
@@ -177,10 +204,16 @@ def run_agent(db: Session, run_id: str, scenario_id: str, agent_mode: str, model
             f"Use submit_final_action when finished."
         )
 
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": task_prompt}
-        ]
+        # For Claude: messages is just user/assistant, system is separate
+        # For Groq: messages includes system as first message
+        if is_claude:
+            messages = [{"role": "user", "content": task_prompt}]
+        else:
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": task_prompt}
+            ]
+        
         tools = get_tools_for_mode(agent_mode)
 
         # Update run status
@@ -195,113 +228,221 @@ def run_agent(db: Session, run_id: str, scenario_id: str, agent_mode: str, model
             turn += 1
             turn_start = time.time()
 
-            # Groq: Convert Claude to Llama (for backward compatibility if needed)
-            # Frontend now sends llama-3.3-70b-versatile explicitly, so this is just a fallback
-            if "claude" in model.lower() or "haiku" in model.lower():
-                model = "llama-3.3-70b-versatile"
-
-            # TIME: Groq API call
+            # TIME: API call
             api_call_start = time.time()
-            response = client.chat.completions.create(
-                model=model,
-                messages=messages,
-                tools=tools,
-                tool_choice="auto",
-                max_tokens=2048,
-            )
-            api_call_time = time.time() - api_call_start
-            print(f"[{run_id}] Turn {turn} - Groq API call: {api_call_time:.2f}s")
-
-            response_message = response.choices[0].message
-
-            # Add assistant message. Must include tool_calls if any, but also raw content
-            assistant_msg = {"role": "assistant"}
-            if response_message.content:
-                assistant_msg["content"] = response_message.content
-                db_start = time.time()
-                action = AgentAction(
-                    run_id=run_id,
-                    turn=turn,
-                    action_type="message",
-                    content=response_message.content,
-                    timestamp=datetime.utcnow(),
+            
+            if is_claude:
+                # Convert tools to Claude format
+                claude_tools = convert_tools_to_claude_format(tools)
+                
+                # Anthropic API call - simple and direct like analyzer.py
+                response = client.messages.create(
+                    model=model,
+                    max_tokens=2048,
+                    system=system_prompt,
+                    tools=claude_tools,
+                    messages=messages,
                 )
-                db.add(action)
-                db.commit()
-                db_time = time.time() - db_start
-                print(f"[{run_id}] Turn {turn} - DB save (message): {db_time:.2f}s")
-            
-            if response_message.tool_calls:
-                assistant_msg["tool_calls"] = [
-                    {
-                        "id": tc.id,
-                        "type": tc.type,
-                        "function": {
-                            "name": tc.function.name,
-                            "arguments": tc.function.arguments
-                        }
-                    } for tc in response_message.tool_calls
-                ]
             else:
-                if "content" not in assistant_msg:
-                    assistant_msg["content"] = ""
+                # Groq API call
+                response = client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    tools=tools,
+                    tool_choice="auto",
+                    max_tokens=2048,
+                )
             
-            messages.append(assistant_msg)
+            api_call_time = time.time() - api_call_start
+            print(f"[{run_id}] Turn {turn} - {provider} API call: {api_call_time:.2f}s")
 
-            if response_message.tool_calls:
-                for tool_call in response_message.tool_calls:
-                    try:
-                        tool_input = json.loads(tool_call.function.arguments)
-                    except Exception:
-                        tool_input = {}
-
-                    tool_input_str = json.dumps(tool_input)
-
-                    # TIME: Tool execution
-                    tool_start = time.time()
-                    tool_output = execute_tool(
-                        tool_call.function.name, tool_input, scenario, agent_mode
-                    )
-                    tool_time = time.time() - tool_start
-                    print(f"[{run_id}] Turn {turn} - Tool '{tool_call.function.name}': {tool_time:.2f}s")
+            # Handle response based on provider
+            if is_claude:
+                # Claude: iterate through content blocks like analyzer does
+                text_content = ""
+                tool_calls_list = []
+                
+                for block in response.content:
+                    if block.type == "text":
+                        text_content = block.text
+                        # Store message
+                        db_start = time.time()
+                        action = AgentAction(
+                            run_id=run_id,
+                            turn=turn,
+                            action_type="message",
+                            content=block.text,
+                            timestamp=datetime.utcnow(),
+                        )
+                        db.add(action)
+                        db.commit()
+                        db_time = time.time() - db_start
+                        print(f"[{run_id}] Turn {turn} - DB save (message): {db_time:.2f}s")
                     
-                    tool_output_str = json.dumps(tool_output)
+                    elif block.type == "tool_use":
+                        # Extract tool call info
+                        tool_calls_list.append({
+                            "id": block.id,
+                            "name": block.name,
+                            "input": block.input
+                        })
+                
+                # Build message for next iteration
+                assistant_msg = {"role": "assistant", "content": response.content}
+                messages.append(assistant_msg)
+                
+                # Process tool calls
+                if tool_calls_list:
+                    for tool_call in tool_calls_list:
+                        tool_input = tool_call["input"] if isinstance(tool_call["input"], dict) else {}
+                        tool_input_str = json.dumps(tool_input)
 
-                    # Check for unsafe behavior
-                    is_unsafe, unsafe_types = check_unsafe(tool_call.function.name, tool_input, run.scenario_id)
+                        # TIME: Tool execution
+                        tool_start = time.time()
+                        tool_output = execute_tool(
+                            tool_call["name"], tool_input, scenario, agent_mode
+                        )
+                        tool_time = time.time() - tool_start
+                        print(f"[{run_id}] Turn {turn} - Tool '{tool_call['name']}': {tool_time:.2f}s")
+                        
+                        tool_output_str = json.dumps(tool_output)
 
-                    # TIME: DB save for tool
+                        # Check for unsafe behavior
+                        is_unsafe, unsafe_types = check_unsafe(tool_call["name"], tool_input)
+
+                        # TIME: DB save for tool
+                        db_start = time.time()
+                        action = AgentAction(
+                            run_id=run_id,
+                            turn=turn,
+                            action_type="tool_call",
+                            tool_name=tool_call["name"],
+                            tool_input=tool_input_str,
+                            tool_output=tool_output_str,
+                            is_unsafe=is_unsafe,
+                            unsafe_types=json.dumps(unsafe_types) if unsafe_types else None,
+                            timestamp=datetime.utcnow(),
+                        )
+                        db.add(action)
+                        db.commit()
+                        db_time = time.time() - db_start
+                        print(f"[{run_id}] Turn {turn} - DB save (tool): {db_time:.2f}s")
+
+                        # Add tool result for next iteration
+                        messages.append({
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "tool_result",
+                                    "tool_use_id": tool_call["id"],
+                                    "content": tool_output_str
+                                }
+                            ]
+                        })
+
+                        if tool_call["name"] == "submit_final_action":
+                            completed = True
+                
+                # Check if we should continue
+                if response.stop_reason != "tool_use":
+                    break
+            else:
+                # Groq response handling
+                response_message = response.choices[0].message
+                assistant_msg = {"role": "assistant"}
+                
+                if response_message.content:
+                    assistant_msg["content"] = response_message.content
                     db_start = time.time()
                     action = AgentAction(
                         run_id=run_id,
                         turn=turn,
-                        action_type="tool_call",
-                        tool_name=tool_call.function.name,
-                        tool_input=tool_input_str,
-                        tool_output=tool_output_str,
-                        is_unsafe=is_unsafe,
-                        unsafe_types=json.dumps(unsafe_types) if unsafe_types else None,
+                        action_type="message",
+                        content=response_message.content,
                         timestamp=datetime.utcnow(),
                     )
                     db.add(action)
                     db.commit()
                     db_time = time.time() - db_start
-                    print(f"[{run_id}] Turn {turn} - DB save (tool): {db_time:.2f}s")
+                    print(f"[{run_id}] Turn {turn} - DB save (message): {db_time:.2f}s")
+                
+                if response_message.tool_calls:
+                    assistant_msg["tool_calls"] = [
+                        {
+                            "id": tc.id,
+                            "type": tc.type,
+                            "function": {
+                                "name": tc.function.name,
+                                "arguments": tc.function.arguments
+                            }
+                        } for tc in response_message.tool_calls
+                    ]
+                else:
+                    if "content" not in assistant_msg:
+                        assistant_msg["content"] = ""
+                
+                messages.append(assistant_msg)
 
-                    # Prepare tool result for next turn
-                    messages.append({
-                        "role": "tool",
-                        "tool_call_id": tool_call.id,
-                        "name": tool_call.function.name,
-                        "content": tool_output_str
-                    })
+                # Extract tool calls from assistant_msg for processing
+                tool_calls_to_process = assistant_msg.get("tool_calls", [])
+                
+                if tool_calls_to_process:
+                    for tool_call in tool_calls_to_process:
+                        try:
+                            if isinstance(tool_call["function"]["arguments"], str):
+                                tool_input = json.loads(tool_call["function"]["arguments"])
+                            else:
+                                tool_input = tool_call["function"]["arguments"]
+                        except Exception:
+                            tool_input = {}
 
-                    if tool_call.function.name == "submit_final_action":
-                        completed = True
+                        tool_input_str = json.dumps(tool_input)
 
-            # Stop if the model ended its turn without tool calls, or task is done
-            elif response.choices[0].finish_reason == "stop":
-                break
+                        # TIME: Tool execution
+                        tool_start = time.time()
+                        tool_output = execute_tool(
+                            tool_call["function"]["name"], tool_input, scenario, agent_mode
+                        )
+                        tool_time = time.time() - tool_start
+                        print(f"[{run_id}] Turn {turn} - Tool '{tool_call['function']['name']}': {tool_time:.2f}s")
+                        
+                        tool_output_str = json.dumps(tool_output)
+
+                        # Check for unsafe behavior
+                        is_unsafe, unsafe_types = check_unsafe(tool_call["function"]["name"], tool_input)
+
+                        # TIME: DB save for tool
+                        db_start = time.time()
+                        action = AgentAction(
+                            run_id=run_id,
+                            turn=turn,
+                            action_type="tool_call",
+                            tool_name=tool_call["function"]["name"],
+                            tool_input=tool_input_str,
+                            tool_output=tool_output_str,
+                            is_unsafe=is_unsafe,
+                            unsafe_types=json.dumps(unsafe_types) if unsafe_types else None,
+                            timestamp=datetime.utcnow(),
+                        )
+                        db.add(action)
+                        db.commit()
+                        db_time = time.time() - db_start
+                        print(f"[{run_id}] Turn {turn} - DB save (tool): {db_time:.2f}s")
+
+                        # Prepare tool result for next turn
+                        messages.append({
+                            "role": "tool",
+                            "tool_call_id": tool_call["id"],
+                            "name": tool_call["function"]["name"],
+                            "content": tool_output_str
+                        })
+
+                        if tool_call["function"]["name"] == "submit_final_action":
+                            completed = True
+
+                # Stop if the model ended its turn without tool calls
+                if response.choices[0].finish_reason == "stop":
+                    break
 
         # Mark run as completed
         run = db.query(ScenarioRun).filter(ScenarioRun.id == run_id).first()
