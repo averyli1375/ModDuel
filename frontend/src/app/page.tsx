@@ -32,6 +32,7 @@ export default function Home() {
   const [pastRuns, setPastRuns] = useState<RunSummary[]>([]);
   const [selectedComparison, setSelectedComparison] = useState<string>("");
   const [showResultsPopup, setShowResultsPopup] = useState(true);
+  const [showResultsButton, setShowResultsButton] = useState(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Fetch scenarios on mount
@@ -47,6 +48,7 @@ export default function Home() {
   // Fetch scenario detail when selection changes
   useEffect(() => {
     if (!selectedScenario) return;
+    setShowResultsButton(false);
     fetchScenarioDetail(selectedScenario).then(setScenarioDetail).catch(console.error);
   }, [selectedScenario]);
 
@@ -73,6 +75,7 @@ export default function Home() {
           if (pollingRef.current) clearInterval(pollingRef.current);
           pollingRef.current = null;
           setIsRunning(false);
+          setShowResultsButton(true);
           loadPastRuns();
         }
       } catch (err) {
@@ -95,7 +98,6 @@ export default function Home() {
     try {
       const result = await startRun(selectedScenario, agentMode);
       setIsRunning(true);
-      setCurrentRun(null);
       setComparisonRun(null);
       setShowResultsPopup(true);
       startPolling(result.run_id);
@@ -106,9 +108,10 @@ export default function Home() {
 
   const handleViewResults = () => {
     setActiveTab("reckoning");
+    setShowResultsButton(false);
   };
 
-  const isResultsReady = !isRunning && currentRun?.status === "completed" && currentRun?.score;
+  const isResultsReady = showResultsButton && !isRunning && currentRun?.status === "completed" && currentRun?.score;
 
   const handleLoadComparison = async (runId: string) => {
     if (!runId) {
