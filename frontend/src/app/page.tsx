@@ -147,7 +147,7 @@ export default function Home() {
       .filter((s) => s.run_count > 0);
 
     if (scenarioPayload.length === 0) {
-      setError("Set at least one scenario run count above 0 to start The Research Lab experiment.");
+      setError("Set at least one scenario run count above 0 to start The Frontier Trials experiment.");
       return;
     }
 
@@ -158,7 +158,7 @@ export default function Home() {
 
     try {
       const exp = await startResearchExperiment({
-        name: "The Research Lab",
+        name: "The Frontier Trials",
         agent_mode: agentMode,
         model: researchSelectedModel,
         max_concurrency: 1,
@@ -420,7 +420,7 @@ export default function Home() {
                   : "bg-wood-medium opacity-80 text-wood-dark hover:opacity-100"
               }`}
             >
-              <span className="font-[family-name:var(--font-western)] text-xl">The Research Lab</span>
+              <span className="font-[family-name:var(--font-western)] text-xl">The Frontier Trials</span>
             </button>
             <button
               onClick={() => setActiveTab("reckoning")}

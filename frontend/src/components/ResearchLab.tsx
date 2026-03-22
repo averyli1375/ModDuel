@@ -56,7 +56,7 @@ export default function ResearchLab({
       <div className="w-80 flex-shrink-0 wood-board p-2 h-full min-h-0 flex flex-col">
         <div className="wanted-poster p-3 h-full flex flex-col min-h-0">
           <h2 className="font-[family-name:var(--font-western)] text-xl text-wood-dark text-center border-b border-wood-dark/30 pb-2">
-            The Research Lab
+            The Frontier Trials
           </h2>
           <p className="text-xs text-wood-dark/80 mt-2 text-center">
             Select how many runs to execute per scenario.
